@@ -3,6 +3,19 @@
 Load each offsets file **once, on the home page**. Every worksheet then picks it
 up automatically until the reference thermometer's certificate expires.
 
+## v1.637 — Tools behind the PIN or the office password
+
+Radek (20 Nov 2026). Tools and every tool it opens — Data Logger Viewer, PDF Merge &
+Reorder, Combine job packs (calibration.html#combine), Stray saved worksheets
+(calibration.html#strays) — ask for the engineers' 4-digit PIN or, after tapping
+"Office password", the shared office password. Also when the page is opened
+directly. The page stays hidden until then; Cancel goes back to Today (the job list
+itself is not locked). Once unlocked, other Tools pages in the same tab don't ask
+again for 30 minutes. Settings, Delete job stay PIN-only. Neither the PIN nor the
+password is written in LabCal — only their fingerprints (labcal_pin.js). New file:
+labcal_toolsgate.js. This is a "need to know the code" step: LabCal is a public web
+app, so it does not stop someone who reads the page's code.
+
 ## v1.636 — Live probes compact: 6–7 units on one iPad screen
 
 Radek (20 Nov 2026). Same data and rules, new layout (live_probes.html only):
