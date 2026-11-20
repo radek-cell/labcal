@@ -1,4 +1,4 @@
-(window.LabCalBuild = window.LabCalBuild || {})['labcal_jobsheet.js'] = 'v1.637';  // file version — see labcal_build.js
+(window.LabCalBuild = window.LabCalBuild || {})['labcal_jobsheet.js'] = 'v1.638';  // file version — see labcal_build.js
 /* ---------------------------------------------------------------------
    LabCal — shared jobsheet module
    ---------------------------------------------------------------------
@@ -1860,6 +1860,7 @@
     // out of date is settled. Its readings' fingerprint is kept, so a later
     // change on the worksheet asks for a revised certificate again.
     delete hit.reissue;
+    delete hit.reopen;                 // v1.638: the revised certificate is made — locked again
     if (hit.serialWas) {
       hit.serialsBefore = (hit.serialsBefore || []).concat([hit.serialWas]);
       delete hit.serialWas;
@@ -1932,6 +1933,44 @@
     }
     return { changed: needsReissue(d), certRef: d.certRef || '' };
   }
+  // ---- v1.638 (Radek, 20 Nov 2026): a certified unit is LOCKED --------------
+  // Once its certificate is made, the unit's worksheet is read-only. The only
+  // way to change it is Re-issue on the job list (PIN), which sets d.reopen;
+  // the next certificate (markDone) clears it and the unit is locked again.
+  // Units already waiting for a revised certificate (needsReissue — changed
+  // before v1.638, or serial corrected) stay open so it can be issued.
+  function isCertLocked(d) {
+    return !!(d && d.done && !d.notRequired && !d.duplicateMerged && !d.reopen && !needsReissue(d));
+  }
+  // For a worksheet: the unit it is for, as the job list sees it.
+  function certLockFor(jobRef, serial) {
+    var ref = String(jobRef || '').trim();
+    var l = link();
+    if (!ref && l && l.jobRef) ref = l.jobRef;
+    var job = ref ? (jobKey((current() || {}).callNumber) === jobKey(ref) ? current() : jobByRef(ref)) : current();
+    var d = deviceForWorksheet(job, ref, serial || (l && l.serial) || '');
+    if (!d) return null;
+    return { locked: isCertLocked(d), done: !!d.done, reopened: !!d.reopen, certRef: d.certRef || '',
+      jobRef: (job && job.callNumber) || ref, serial: d.serial || '', uid: d.uid || '', sheet: d.sheet || '' };
+  }
+  // Re-issue (after the PIN): open the certified unit for a revised certificate.
+  function reopenUnit(jobRef, serial, uid) {
+    var ref = String(jobRef || '').trim();
+    if (ref && jobKey((current() || {}).callNumber) !== jobKey(ref) && jobsStore()[jobKey(ref)]) {
+      return withJob(ref, function () { return reopenUnit(jobRef, serial, uid); });
+    }
+    var js = current(); if (!js) return false;
+    var live = (js.devices || []).filter(function (d) { return !d.duplicateMerged; });
+    var d = (uid ? live.filter(function (x) { return x.uid === uid; })[0] : null) ||
+      live.filter(function (x) { return serialKey(x.serial) && serialKey(x.serial) === serialKey(serial); })[0];
+    if (!d || !d.done) return false;
+    d.reopen = { at: new Date().toISOString(), certRef: d.certRef || '' };
+    writeJson(KEY_CURRENT, js);
+    saveActiveJob();
+    announce();
+    return true;
+  }
+
   // For a worksheet being opened: is its certified unit waiting for a revised certificate?
   function reissueFor(jobRef, serial) {
     var job = jobRef ? jobByRef(jobRef) : current();
@@ -2236,6 +2275,9 @@
     noteWorksheetState: noteWorksheetState,
     changeSheet: changeSheet,           // v1.631
     reissueFor: reissueFor,
+    isCertLocked: isCertLocked,        // v1.638
+    certLockFor: certLockFor,          // v1.638
+    reopenUnit: reopenUnit,            // v1.638
     arrivedFromList: arrivedFromList,
     progress: progress,
     isStarted: isStarted,

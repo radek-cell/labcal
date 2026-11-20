@@ -3,7 +3,7 @@
 // Bump CACHE_VERSION any time the HTML/JS files change and you want
 // devices that already installed the app to pick up the new version.
 // ---------------------------------------------------------------------
-const CACHE_VERSION  = 'v181';
+const CACHE_VERSION  = 'v182';
 // v1.553: cache names carry the folder this worker serves (e.g. /1.553/), so
 // two LabCal versions on the same site (the test site keeps one folder per
 // version) can no longer delete each other's offline copy.
@@ -30,6 +30,7 @@ const APP_SHELL = [
   './labcal_errlog.js',    // v1.576: on-device error log
   './labcal_pin.js',       // v1.594: PIN pad
   './labcal_toolsgate.js', // v1.637: Tools behind PIN or office password
+  './labcal_certlock.js',  // v1.638: certified unit = locked worksheet
   './labcal_offsets.js',
   './labcal_jobsheet.js',
   './labcal_testmode.js',

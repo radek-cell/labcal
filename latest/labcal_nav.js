@@ -1,4 +1,4 @@
-(window.LabCalBuild = window.LabCalBuild || {})['labcal_nav.js'] = 'v1.637';  // file version — see labcal_build.js
+(window.LabCalBuild = window.LabCalBuild || {})['labcal_nav.js'] = 'v1.638';  // file version — see labcal_build.js
 /* ---------------------------------------------------------------------
    LabCal — Back / Home on the worksheet toolbar (v1.563)
    ---------------------------------------------------------------------
@@ -703,7 +703,8 @@
       doc.head.appendChild(sc);
     });
   }
-  function viewThisCert(id) {
+  function viewThisCert(id, opts) {
+    opts = opts || {};
     var C = global.LabCalCerts;
     closePanel('lcNextPanel');
     var old = doc.getElementById('lcCertView'); if (old) old.remove();
@@ -722,7 +723,9 @@
     var box = doc.createElement('div');
     box.id = 'lcCertView'; box.setAttribute('role', 'dialog'); box.setAttribute('aria-label', 'Certificate');
     box.innerHTML = '<div class="cv-bar"><span class="cv-name">Opening certificate…</span>' +
-      '<button type="button" class="cv-share" disabled>Share</button><button type="button" class="cv-close">Close</button></div>' +
+      '<button type="button" class="cv-share" disabled>Share</button>' +
+      (opts.jobUrl ? '<button type="button" class="cv-job">Back to job</button>' : '') +
+      '<button type="button" class="cv-close">' + (opts.jobUrl ? 'Next unit' : 'Close') + '</button></div>' +
       '<div class="cv-body"><div class="cv-msg">Opening certificate…</div></div>';
     doc.body.appendChild(box);
     var prevOverflow = doc.body.style.overflow; doc.body.style.overflow = 'hidden';
@@ -738,6 +741,9 @@
     }
     doc.addEventListener('keydown', onKey, true);
     box.querySelector('.cv-close').addEventListener('click', close);
+    // v1.638: the certificate shown after Generate / on a locked worksheet — straight back to the job
+    var jb = box.querySelector('.cv-job');
+    if (jb) jb.addEventListener('click', function () { global.location.href = opts.jobUrl; });
     var rec = null;
     (C && C.get ? C.get(id) : Promise.resolve(null)).then(function (r) {
       rec = r;
@@ -819,6 +825,8 @@
     global.addEventListener('labcal-file-delivered', function (e) {
       var d = (e && e.detail) || {};
       if (d.certIds || !/\.pdf$/i.test(String(d.filename || ''))) return;   // merged files / Excel: no
+      // v1.638: with the certificate lock on, labcal_certlock.js shows the certificate instead
+      try { if (global.LabCalCertLock && global.LabCalCertLock.enabled() && global.LabCalCertLock.isPageLocked()) return; } catch (e2) {}
       global.setTimeout(showNext, 350);
     });
     // Save to job list (the engineer's own tap, when it worked)
@@ -981,6 +989,10 @@
     _renderHistLine: renderHistLine,
     showHistory: showHistory,
     showNext: showNext,
+    // v1.638: this unit's stored certificate, in LabCal (null = none stored)
+    viewThisCertificate: function (opts) {
+      return thisUnitCert().then(function (rec) { if (rec) viewThisCert(rec.id, opts); return rec; });
+    },
     showUnits: showUnits,          // v1.600
     _neighbours: function () { var i = jobLineInfo(); return i ? neighbours(i) : null; },
     _remaining: remainingUnits,

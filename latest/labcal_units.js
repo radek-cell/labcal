@@ -1,4 +1,4 @@
-(window.LabCalBuild = window.LabCalBuild || {})['labcal_units.js'] = 'v1.637';  // file version — see labcal_build.js
+(window.LabCalBuild = window.LabCalBuild || {})['labcal_units.js'] = 'v1.638';  // file version — see labcal_build.js
 /* ---------------------------------------------------------------------
    LabCal — per-unit worksheet snapshots
    ---------------------------------------------------------------------
@@ -236,6 +236,9 @@
   }
 
   function saveForm(sheet, jobRef, serial, state, meta) {
+    // v1.638: a locked (certified) worksheet writes nothing — the saved
+    // readings stay exactly as the certificate was made from them
+    try { if (global.LabCalCertLock && global.LabCalCertLock.isPageLocked()) return true; } catch (e) {}
     var key = keyFor(sheet, jobRef, serial);
     var s = store();
     if (!key || !s) return false;
@@ -262,6 +265,8 @@
     if (rec && key) { owned[key] = 'loaded'; formKey = key; }
     if (rec && rec.state) loadedPrint = fingerprint(rec.state);
     showReissueIfDue(jobRef, serial);
+    // v1.638: a certified unit's worksheet opens locked (after the fields are filled in)
+    try { if (global.LabCalCertLock && global.setTimeout) global.setTimeout(function () { try { global.LabCalCertLock.check(jobRef, serial); } catch (e) {} }, 0); } catch (e) {}
     return rec;
   }
 

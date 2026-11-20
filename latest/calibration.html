@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="labcal-build" content="v1.637">
+<meta name="labcal-build" content="v1.638">
 <script src="labcal_build.js"></script>
 <script src="labcal_errlog.js"></script>
 <script src="labcal_shell.js"></script>  <!-- v1.619: side menu -->
@@ -851,7 +851,7 @@ html.lcs-view-ws #packCombinePanel,html.lcs-view-ws #straysPanel{display:none!im
 
   <footer>
     <span>LabCal Calibration Suite · offline worksheet toolkit</span>
-    <span id="footYear">v1.637</span>
+    <span id="footYear">v1.638</span>
   </footer>
 
 </div>
@@ -1096,7 +1096,7 @@ function renderDate(){
   const d = new Date();
   const opts = {day:'2-digit', month:'short', year:'numeric'};
   document.getElementById('todayDate').textContent = d.toLocaleDateString('en-GB', opts).toUpperCase();
-  document.getElementById('footYear').textContent = 'v1.637 · ' + d.getFullYear();
+  document.getElementById('footYear').textContent = 'v1.638 · ' + d.getFullYear();
 }
 
 
@@ -1267,6 +1267,16 @@ function showReturnUnit(){
   }
   if(openReturnUnit){
     openReturnUnit = false;
+    // v1.638: a certified (locked) unit asked for by name → its certificate
+    if(certLockOn() && LabCalJobsheet.isCertLocked){
+      const jsr = LabCalJobsheet.current();
+      const dl = jsr && (jsr.devices||[]).find(x=>!x.duplicateMerged && String(x.serial||'').toUpperCase().replace(/[^A-Z0-9]/g,'') === want);
+      if(dl && LabCalJobsheet.isCertLocked(dl)){
+        if(row){ try{ row.scrollIntoView({ block:'center' }); }catch(e){} }
+        showUnitCertificate(dl);
+        return;
+      }
+    }
     // v1.600: a finished unit asked for by name (path ‹ / ›, unit switcher,
     // home "Carry on") is folded away — unfold the done units to reach it.
     if(!row && !doneOpen){
@@ -1919,7 +1929,7 @@ function bindBackupNudge(js){
     const label = btn.textContent;
     btn.disabled = true; btn.textContent = 'Packing…';
     try{
-      const pack = await LabCalBackup.build({ appVersion: 'v1.637' });
+      const pack = await LabCalBackup.build({ appVersion: 'v1.638' });
       const blob = LabCalBackup.toBlob(pack);
       if(blob.size > LabCalBackup.SIZE_WARN_BYTES &&
          !confirm('This backup is larger than expected ('+Math.round(blob.size/1024)+' KB).\n\nVery large files can hang the Files app when it tries to preview them. Save it anyway?')) return;
@@ -2420,7 +2430,7 @@ function renderJobPanel(){
           (d.duplicateOf && !d.done ? '<span class="jdev-tag notreq">duplicate</span>' :
           (d.notRequired && !d.done ? '<span class="jdev-tag notreq">not required</span>' :
           (!d.done && LabCalJobsheet.isStarted(js.callNumber, d) ? '<span class="jdev-tag started">started</span>' : '')))
-        }${d.duplicateCopies ? `<span class="jdev-tag dup" title="The jobsheet lists this serial ${d.duplicateCopies+1} times. It is counted once.">listed ${d.duplicateCopies+1}\u00d7 on jobsheet</span>` : ''}${d.addedManually ? '<span class="jdev-tag added">added on site</span>' : ''}${
+        }${certLockOn() && d.done && d.reopen && !needsReissue(d) ? '<span class="jdev-tag reissue" title="Reopened with the PIN — Generate PDF makes the revised certificate">reopened</span>' : ''}${d.duplicateCopies ? `<span class="jdev-tag dup" title="The jobsheet lists this serial ${d.duplicateCopies+1} times. It is counted once.">listed ${d.duplicateCopies+1}\u00d7 on jobsheet</span>` : ''}${d.addedManually ? '<span class="jdev-tag added">added on site</span>' : ''}${
           d.edited ? `<span class="jdev-tag edited" title="${jesc((d.editedFields||[]).join(', '))}${d.editedAt?' · '+jesc(shortDay(d.editedAt)):''}">edited</span>` : ''
         }</div>
         <div class="jdev-meta">${jesc(d.serial||'no serial')}${d.location?' · '+jesc(d.location):''}${d.done?certMetaFor(d):''}${d.done&&d.doneAt?' · '+jesc(shortDay(d.doneAt)):''}${d.notRequired&&!d.done&&d.notRequiredReason?' · '+jesc(d.notRequiredReason):''}${
@@ -2432,7 +2442,8 @@ function renderJobPanel(){
         ${d.notRequired && !d.done ? '' : `<select data-route="${i}" class="${d.sheet?'':'ask'}">${sheetOptions(d.sheet)}</select>`}
         ${d.notRequired && !d.done
           ? `<button class="jbtn ghost mini" type="button" data-restore="${i}">Put back</button>`
-          : `<button class="jbtn" type="button" data-open="${i}" ${(!d.sheet||blocked)?'disabled':''}>${needsReissue(d)?'Re-issue':(d.done?'Reopen':'Open')}</button>
+          : `<button class="jbtn" type="button" data-open="${i}" ${(!d.sheet||blocked)?'disabled':''}>${needsReissue(d)?'Re-issue':(d.done?(certLockOn()?(d.reopen?'Re-issue':'Certificate'):'Reopen'):'Open')}</button>
+             ${certLockOn() && LabCalJobsheet.isCertLocked && LabCalJobsheet.isCertLocked(d) ? `<button class="jbtn ghost mini" type="button" data-reissue="${i}" ${(!d.sheet||blocked)?'disabled':''} title="Correct a certified unit — PIN, then a revised certificate">Re-issue</button>` : ''}
              ${d.done ? '' : `<button class="jbtn cross mini" type="button" data-skip="${i}" title="Not required — not on site, or customer declined">✕</button>`}`}
         ${d.done ? '' : `<button class="jbtn ghost mini" type="button" data-edit="${i}" title="Correct the serial number or location">Edit</button>`}
         ${d.duplicateCopies ? `<button class="jbtn ghost mini" type="button" data-split="${i}" title="These are two different units that happen to share a serial number">Two units</button>` : ''}
@@ -2614,7 +2625,10 @@ function renderJobPanel(){
         const ref = currentCertRef(d);
         const label = (cur && cur.summary) || ref || doneWord(d);
         foot = `<div class="jc-cert${cur||certLoadNote?'':' missing'}">${jesc(label)}${cur||certLoadNote?'':' <span>— not on file</span>'}</div>
-          <div class="jc-btns">${copyCertBtn(cur || {certRef: ref})}${cur ? `<button class="cbtn mini" type="button" data-cview="${cur.id}">View</button>` : ''}</div>`;
+          <div class="jc-btns">${copyCertBtn(cur || {certRef: ref})}${cur ? `<button class="cbtn mini" type="button" data-cview="${cur.id}">View</button>` : ''}${
+            !certLockOn() || !d.sheet ? '' : (d.reopen
+              ? `<button class="jbtn mini" type="button" data-open="${i}" ${blocked?'disabled':''}>Continue re-issue</button>`
+              : `<button class="jbtn ghost mini" type="button" data-reissue="${i}" ${blocked?'disabled':''} title="Correct a certified unit — PIN, then a revised certificate">Re-issue</button>`)}</div>`;
       } else {
         const word = st==='reissue' ? 'Re-issue' : (st==='started' ? 'Continue' : 'Open worksheet');
         foot = `${st==='started' ? `<div class="jc-stage" data-live-job="${jesc(js.callNumber||'')}" data-live-serial="${jesc(d.serial||'')}">Started — readings entered</div>` : ''}
@@ -2774,10 +2788,28 @@ function renderJobPanel(){
     jobPanel.querySelectorAll('[data-open]').forEach(btn=>btn.addEventListener('click',()=>{
       const i = Number(btn.getAttribute('data-open'));
       const d = LabCalJobsheet.current().devices[i];
+      // v1.638: a certified unit opens its certificate, not its worksheet
+      if(certLockOn() && LabCalJobsheet.isCertLocked && LabCalJobsheet.isCertLocked(d)){ showUnitCertificate(d); return; }
       const S = LabCalJobsheet.SHEETS[d.sheet];
       if(!S) return;
       if(!confirmTakeOver(LabCalJobsheet.current().callNumber, d.serial)) return;
       LabCalJobsheet.handoff(i);          // also remembers this model's route
+      window.location.href = S.href;
+    }));
+    // v1.638: Re-issue a certified unit — PIN, then its worksheet opens for a revised certificate
+    jobPanel.querySelectorAll('[data-reissue]').forEach(btn=>btn.addEventListener('click', async ()=>{
+      const i = Number(btn.getAttribute('data-reissue'));
+      const js0 = LabCalJobsheet.current();
+      const d = js0 && js0.devices[i];
+      if(!d) return;
+      const S = LabCalJobsheet.SHEETS[d.sheet];
+      if(!S) return;
+      if(!window.LabCalPin){ alert('The PIN pad (labcal_pin.js) did not load, so the unit cannot be reopened. Reload LabCal while online.'); return; }
+      const ok = await LabCalPin.ask({ title: 'Re-issue ' + (d.serial || d.model || ''), message: 'Certificate ' + (d.certRef || '') + ' was made for this unit. Enter the 4-digit PIN to reopen its worksheet — Generate PDF then makes the revised certificate.' });
+      if(!ok) return;
+      if(!confirmTakeOver(js0.callNumber, d.serial)) return;
+      if(!LabCalJobsheet.reopenUnit(js0.callNumber, d.serial, d.uid)){ jobToast = {text:'This unit could not be reopened.', bad:true}; renderJobPanel(); return; }
+      LabCalJobsheet.handoff(i);
       window.location.href = S.href;
     }));
     const rb = document.getElementById('jobReplaceBtn');
@@ -3419,7 +3451,14 @@ function bindCertActions(){
     if(!rec) return;
     const sheet = LabCalJobsheet.SHEETS[rec.sheet];
     if(!sheet){ alert('That certificate does not say which worksheet produced it.'); return; }
+    // v1.638: reopening a certified unit = Re-issue → PIN first
+    if(certLockOn()){
+      if(!window.LabCalPin){ alert('The PIN pad (labcal_pin.js) did not load. Reload LabCal while online.'); return; }
+      const ok = await LabCalPin.ask({ title: 'Re-issue ' + (rec.serial || ''), message: 'Enter the 4-digit PIN to reopen this certified unit — Generate PDF then makes the revised certificate.' });
+      if(!ok) return;
+    }
     if(!confirmTakeOver(rec.jobRef, rec.serial)) return;
+    if(certLockOn() && LabCalJobsheet.reopenUnit) LabCalJobsheet.reopenUnit(rec.jobRef, rec.serial, rec.unitUid || '');
     const saved = window.LabCalUnits && LabCalUnits.has(rec.sheet, rec.jobRef, rec.serial);
     if(!saved && !confirm(`No saved readings were found for ${rec.serial}.\n\nOpen the worksheet with just the header filled in?`)) return;
     LabCalJobsheet.handoffUnit({
@@ -3879,6 +3918,19 @@ function renderCertCheck(out){
 // v1.549: what the unit line says about its certificate. Monitoring
 // System has no certificate number: show its Worksheet No (if any) and the
 // channel count; units finished under 1.545-1.548 carry "2 ch · in tol".
+// v1.638 (Radek): a certified unit's worksheet is locked; the job list opens its
+// certificate and changes go through Re-issue (PIN). Tests switch it off with
+// localStorage 'labcal.certlock.off' = '1' (the older groups test the old flow).
+function certLockOn(){ try{ return localStorage.getItem('labcal.certlock.off') !== '1'; }catch(e){ return true; } }
+async function showUnitCertificate(d){
+  let list = jobCerts[serialKeyOf(d.serial)];
+  if(!list){ try{ await loadJobCerts(); }catch(e){} list = jobCerts[serialKeyOf(d.serial)] || []; }
+  const cur = list.find(c=>!c.superseded) || list[0];
+  if(cur){ viewCertificate(cur.id); return; }
+  jobToast = {text:`The PDF of ${d.serial || d.model}'s certificate${d.certRef?' '+d.certRef:''} is not stored on this iPad — open the copy saved in Files. To change the unit: Re-issue.`, bad:true};
+  renderJobPanel();
+}
+
 function certMetaFor(d){
   const ref=d.certRef||'', det=d.detail||'';
   const L=/^(\d+) ch · (?:in tol|(\d+) adj)$/;

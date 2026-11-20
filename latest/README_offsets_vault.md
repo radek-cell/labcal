@@ -3,6 +3,22 @@
 Load each offsets file **once, on the home page**. Every worksheet then picks it
 up automatically until the reference thermometer's certificate expires.
 
+## v1.638 — Certified unit = locked worksheet; changes only through Re-issue (PIN)
+
+Radek (20 Nov 2026). After Generate PDF the worksheet locks at once: every field
+and button off, Generate PDF / Change worksheet… / Save to job list hidden, a green
+bar "Certificate … made — this worksheet is locked" with View certificate and Back
+to job. When the PDF has gone out (Save / Share / Download, or the save bar closed)
+the certificate is shown in LabCal with Back to job and Next unit. Nothing is
+written to the unit's saved readings while locked.
+A worksheet opened for a certified unit any other way (reload, typed serial, Live
+probes, an old tab) also opens locked. Job list: a certified unit shows
+"Certificate" (opens the PDF) and "Re-issue"; Re-issue asks for the PIN, then opens
+the worksheet ("reopened" tag) and Generate PDF makes the revised certificate (rev 2,
+same number) — locked again. The unit ▾ list on a worksheet opens a certified unit's
+certificate. The Reopen button in the certificate list asks for the PIN too.
+No calculation, certificate number or PDF content changed. New file labcal_certlock.js.
+
 ## v1.637 — Tools behind the PIN or the office password
 
 Radek (20 Nov 2026). Tools and every tool it opens — Data Logger Viewer, PDF Merge &
