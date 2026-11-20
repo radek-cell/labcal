@@ -3,6 +3,17 @@
 Load each offsets file **once, on the home page**. Every worksheet then picks it
 up automatically until the reference thermometer's certificate expires.
 
+## v1.639 — Job sheet: model wrapped onto two lines read as two units
+
+Radek (20 Nov 2026), ENQ146211 (Commissioning, Leighton Hospital). The model
+"IBB-RDBB2320MD" is too long for its column and the PDF wraps it ("IBB-" / "RDBB2320MD"):
+LabCal read two units (IBB- with T000745, and RDBB2320MD with no serial). Now a line with
+only a model (no serial, no dates) under a unit is the rest of that unit's model. Also:
+a department line already ending in "," no longer gets a second comma ("Laboratory,,"),
+and a word the PDF cuts into two touching pieces is joined ("Leighton H ospital" →
+"Leighton Hospital"; ENQ143938's address "Onsit e parking availab le" reads correctly too).
+labcal_jobsheet.js only; every other job sheet in the test folder reads exactly as before.
+
 ## v1.638 — Certified unit = locked worksheet; changes only through Re-issue (PIN)
 
 Radek (20 Nov 2026). After Generate PDF the worksheet locks at once: every field

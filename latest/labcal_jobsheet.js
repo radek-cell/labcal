@@ -1,4 +1,4 @@
-(window.LabCalBuild = window.LabCalBuild || {})['labcal_jobsheet.js'] = 'v1.638';  // file version — see labcal_build.js
+(window.LabCalBuild = window.LabCalBuild || {})['labcal_jobsheet.js'] = 'v1.639';  // file version — see labcal_build.js
 /* ---------------------------------------------------------------------
    LabCal — shared jobsheet module
    ---------------------------------------------------------------------
@@ -115,6 +115,14 @@
           prev.w=endOf(next)-prev.x;
           i++;
         }
+        continue;
+      }
+      // v1.639: a word the PDF cut into two touching pieces ("Leighton H" + "ospital",
+      // gap 0) is one word again — only when the second piece starts in lower case
+      if (prev && prev.w && it.w && Math.abs(it.x - endOf(prev)) <= 0.5 &&
+          /[A-Za-z]$/.test(String(prev.str)) && /^[a-z]/.test(String(it.str))) {
+        prev.str = String(prev.str) + String(it.str);
+        prev.w = endOf(it) - prev.x;
         continue;
       }
       out.push(Object.assign({},it));
@@ -363,6 +371,14 @@
           let model=(cols.model||'').trim();
           let serial=(cols.serial||cols.serial2||'').trim();
           if(!model && !serial) break;
+          // v1.639 (ENQ146211): a model too long for its column wraps onto the next
+          // line ("IBB-" / "RDBB2320MD") — that line has only the model, no serial
+          // and no dates: it is the rest of the unit above, not a second unit.
+          if(model && !serial && !(cols.warranty||'').trim() && !(cols.maintenance||'').trim() && devices.length){
+            const last=devices[devices.length-1];
+            last.model=/[-\/]$/.test(last.model) ? last.model+model : (last.model+' '+model).trim();
+            continue;
+          }
           if(!model) model=guessModelFromText(t,[serial]);
           if(!serial) serial=guessModelFromText(t,[model]);
           devices.push({model,serial,location:''});
@@ -465,7 +481,8 @@
         const own=items.filter(it=>it.x<boundaryX-10);
         if(own.length) dlines.push(own.map(it=>it.str).join(' '));
       }
-      department=dlines.join(', ');
+      // v1.639: a line already ending in "," is not given a second one
+      department=dlines.reduce((acc,l)=>!acc ? l : (/[,;\/-]\s*$/.test(acc) ? acc.replace(/\s+$/,'')+' '+l : acc+', '+l), '');
     }
     const addrHeaderIdx=rows.findIndex(r=>leadingWordX(r.items,'address')!=null);
     if(addrHeaderIdx!==-1){
