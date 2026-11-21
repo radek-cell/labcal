@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="labcal-build" content="v1.640">
+<meta name="labcal-build" content="v1.641">
 <script src="labcal_build.js"></script>
 <script src="labcal_errlog.js"></script>
 <script src="labcal_shell.js"></script>  <!-- v1.619: side menu -->
@@ -586,6 +586,17 @@ h1{font-size:clamp(28px,4vw,42px);line-height:1.1;margin:0 0 14px;font-weight:70
   margin:10px 0 0;padding:8px 11px;border-radius:6px;font-size:12.5px;
   background:#e9f5ea;border:1px solid var(--green);color:#20603a;
 }
+/* v1.641: load job sheet for another day */
+.lday-back{position:fixed;inset:0;background:rgba(10,30,50,.45);z-index:9000;display:flex;align-items:center;justify-content:center;padding:16px}
+.lday{background:#fff;border-radius:18px;max-width:560px;width:100%;padding:20px 22px;box-shadow:0 12px 40px rgba(0,0,0,.25)}
+.lday h3{margin:0 0 10px;font-size:20px}
+.lday-warn{background:#fff4dc;border:1px solid #f0c674;color:#7a4a00;border-radius:10px;padding:10px 12px;margin:0 0 8px;font-weight:600}
+.lday-note{color:#46525f;margin:0 0 14px;font-size:14px}
+.lday-acts{display:flex;gap:8px;flex-wrap:wrap}
+.lday-acts .jbtn{min-height:44px}
+.lday-bar{display:flex;gap:12px;align-items:center;justify-content:space-between;background:#fff4dc;border:2px solid #b86e00;color:#5c3800;border-radius:14px;padding:10px 14px;margin:8px 0}
+.lday-bar span{display:block;font-size:14px;margin-top:2px}
+.lday-bar .jbtn{min-height:44px;white-space:nowrap}
 .toast.bad{background:#fdecea;border-color:#c0392b;color:#8a3222}
 .prog .split{color:var(--muted-dim)}
 .prog .ptrack i.started{background:var(--amber)}
@@ -851,7 +862,7 @@ html.lcs-view-ws #packCombinePanel,html.lcs-view-ws #straysPanel{display:none!im
 
   <footer>
     <span>LabCal Calibration Suite · offline worksheet toolkit</span>
-    <span id="footYear">v1.640</span>
+    <span id="footYear">v1.641</span>
   </footer>
 
 </div>
@@ -1096,7 +1107,7 @@ function renderDate(){
   const d = new Date();
   const opts = {day:'2-digit', month:'short', year:'numeric'};
   document.getElementById('todayDate').textContent = d.toLocaleDateString('en-GB', opts).toUpperCase();
-  document.getElementById('footYear').textContent = 'v1.640 · ' + d.getFullYear();
+  document.getElementById('footYear').textContent = 'v1.641 · ' + d.getFullYear();
 }
 
 
@@ -1479,7 +1490,7 @@ async function renderDayView(){
       </div>
       <div class="job-actions">
         <button class="jbtn ghost mini" type="button" id="dayNewJob">+ New job</button>
-        <button class="jbtn ghost mini" type="button" id="dayLoadSheet">Load jobsheet</button>
+        <button class="jbtn ghost mini" type="button" id="dayLoadSheet">Load jobsheet${selDay && selDay !== today ? ' for ' + jesc(shortDay(selDay)) : ''}</button>
       </div>
     </div>
     <div class="newjob" id="newJobForm">
@@ -1624,7 +1635,7 @@ function bindDayView(){
   const nx = document.getElementById('newJobCancel');
   if(nx) nx.addEventListener('click', ()=>document.getElementById('newJobForm').classList.remove('open'));
   const ls = document.getElementById('dayLoadSheet');
-  if(ls) ls.addEventListener('click', ()=>jobFile.click());
+  if(ls) ls.addEventListener('click', ()=>askLoadDay(selDay || isoDay(new Date())));   // v1.641: job goes on the day picked on the calendar
 }
 
 // Which panel is on screen.
@@ -1866,6 +1877,57 @@ function copyCertBtn(c){
   return `<button class="cbtn mini copy" type="button" data-ccopy="${jesc(ref)}" title="Copy ${jesc(ref)}">Copy no.</button>`;
 }
 
+// ---- v1.641 (Radek): job sheet loaded on the day picked on the calendar ----
+// The job is put on that day. If it is not today the engineer is asked first,
+// and the job page shows a warning while today is not the job's day — with
+// "Move job to today" for a mistake. Certificates are always dated the day the
+// unit is really calibrated (worksheet Date = today, unchanged).
+let loadSheetDay = null;
+function shortDay(iso){ return fromIso(iso).toLocaleDateString('en-GB',{weekday:'short', day:'numeric', month:'short'}); }
+function longDay(iso){ return fromIso(iso).toLocaleDateString('en-GB',{weekday:'short', day:'numeric', month:'short', year:'numeric'}); }
+function askLoadDay(day){
+  const today = isoDay(new Date());
+  if(!day || day === today){ loadSheetDay = null; jobFile.click(); return; }
+  const old = document.getElementById('loadDayDlg'); if(old) old.remove();
+  const future = day > today;
+  const box = document.createElement('div');
+  box.id = 'loadDayDlg';
+  box.className = 'lday-back';
+  box.innerHTML = `<div class="lday" role="dialog" aria-modal="true" aria-labelledby="ldayT">
+      <h3 id="ldayT">Load the job sheet for ${jesc(longDay(day))}?</h3>
+      <p class="lday-warn">⚠ This is not today. Today is ${jesc(longDay(today))}. The job will be on the calendar on ${jesc(shortDay(day))}${future ? ' (a day still to come)' : ' (a day already gone)'}.</p>
+      <p class="lday-note">Certificates are always dated on the day the unit is actually calibrated, whatever day the job is on.</p>
+      <div class="lday-acts">
+        <button class="jbtn" type="button" id="ldayPicked">Load for ${jesc(shortDay(day))}</button>
+        <button class="jbtn ghost" type="button" id="ldayToday">Load for today</button>
+        <button class="jbtn ghost" type="button" id="ldayCancel">Cancel</button>
+      </div></div>`;
+  document.body.appendChild(box);
+  const close = ()=>box.remove();
+  box.querySelector('#ldayPicked').addEventListener('click', ()=>{ close(); loadSheetDay = day; jobFile.click(); });
+  box.querySelector('#ldayToday').addEventListener('click', ()=>{ close(); loadSheetDay = null; jobFile.click(); });
+  box.querySelector('#ldayCancel').addEventListener('click', close);
+}
+function plannedDayHtml(js){
+  if(!js || !js.plannedFor) return '';
+  const today = isoDay(new Date());
+  const day = js.day || js.plannedFor;
+  if(day === today) return '';
+  return `<div class="lday-bar" id="plannedDayBar">
+      <div><b>⚠ This job is on ${jesc(longDay(day))} — today is ${jesc(longDay(today))}.</b>
+      <span>Certificates made today are dated today (${jesc(shortDay(today))}).</span></div>
+      <button class="jbtn mini" type="button" id="moveJobToday">Move job to today</button>
+    </div>`;
+}
+document.addEventListener('click', ev=>{
+  const b = ev.target && ev.target.closest && ev.target.closest('#moveJobToday');
+  if(!b || !window.LabCalJobsheet || !LabCalJobsheet.moveCurrentToToday) return;
+  LabCalJobsheet.moveCurrentToToday();
+  selDay = isoDay(new Date()); calMonth = selDay;
+  jobToast = {text:'Job moved to today.'};
+  renderCalibrationPage();
+});
+
 function toastHtml(){
   if(!jobToast) return '';
   const t = `<div class="toast${jobToast.bad?' bad':''}">${jesc(jobToast.text)}${jobToast.undo && bulkUndo ? ' <button class="jbtn ghost mini" type="button" id="bulkUndoBtn">Undo</button>' : ''}</div>`;
@@ -1929,7 +1991,7 @@ function bindBackupNudge(js){
     const label = btn.textContent;
     btn.disabled = true; btn.textContent = 'Packing…';
     try{
-      const pack = await LabCalBackup.build({ appVersion: 'v1.640' });
+      const pack = await LabCalBackup.build({ appVersion: 'v1.641' });
       const blob = LabCalBackup.toBlob(pack);
       if(blob.size > LabCalBackup.SIZE_WARN_BYTES &&
          !confirm('This backup is larger than expected ('+Math.round(blob.size/1024)+' KB).\n\nVery large files can hang the Files app when it tries to preview them. Save it anyway?')) return;
@@ -1979,7 +2041,7 @@ function bindJobBar(){
   const nx = document.getElementById('newJobCancel');
   if(nx) nx.addEventListener('click', ()=>{ document.getElementById('newJobForm').classList.remove('open'); });
   const lb = document.getElementById('jobLoadBtn2');
-  if(lb) lb.addEventListener('click', ()=>jobFile.click());
+  if(lb) lb.addEventListener('click', ()=>{ loadSheetDay=null; jobFile.click(); });
 }
 
 // v1.575: "Change locations" — tick the units, type the new location, Apply.
@@ -2323,7 +2385,7 @@ function renderJobPanel(){
     // "+ New job" toggled the form open and straight back closed again.
     if(emptyChanged){
       const b = document.getElementById('jobLoadBtn');
-      if(b) b.addEventListener('click', ()=>jobFile.click());
+      if(b) b.addEventListener('click', ()=>{ loadSheetDay=null; jobFile.click(); });
       bindJobBar();
       bindRoutingFooter();
     }
@@ -2667,6 +2729,7 @@ function renderJobPanel(){
   const html = `
     ${jobBarHtml()}
     ${toastHtml()}
+    ${plannedDayHtml(js)}
     ${backupNudgeHtml(js, live, p)}
     ${packReview && packReview.ref === js.callNumber ? packReviewHtml(packReview) : ''}
     <div class="job-head">
@@ -2813,7 +2876,7 @@ function renderJobPanel(){
       window.location.href = S.href;
     }));
     const rb = document.getElementById('jobReplaceBtn');
-    if(rb) rb.addEventListener('click', ()=>jobFile.click());
+    if(rb) rb.addEventListener('click', ()=>{ loadSheetDay=null; jobFile.click(); });
     const jsb = document.getElementById('jobSheetBtn');
     if(jsb) jsb.addEventListener('click', ()=>viewJobSheet((LabCalJobsheet.current()||{}).callNumber));
     // --- search ---
@@ -3175,7 +3238,9 @@ if(jobFile){
     try{
       const parsed = await LabCalJobsheet.parseFile(file);
       // v1.616 (Radek): units are picked, not all added — Select units opens below
-      LabCalJobsheet.setCurrent(parsed, file.name, {pick:true});
+      // v1.641: day picked on the calendar (null = today, as before)
+      const forDay = loadSheetDay; loadSheetDay = null;
+      LabCalJobsheet.setCurrent(parsed, file.name, forDay ? {pick:true, day:forDay} : {pick:true});
       viewMode = 'job'; jobFilter=''; certJobFilter=null;
       // v1.585: keep the jobsheet PDF itself with the job (view on site, job pack)
       if(window.LabCalJobFiles && LabCalJobFiles.supported()){

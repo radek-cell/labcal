@@ -3,6 +3,18 @@
 Load each offsets file **once, on the home page**. Every worksheet then picks it
 up automatically until the reference thermometer's certificate expires.
 
+## v1.641 — Job sheet goes on the day picked on the calendar (with a warning)
+
+Radek (21 Nov 2026): Calendar → pick a day → Load jobsheet used to put the job on today
+whatever day was picked. Now the button says "Load jobsheet for <day>" and the job goes on
+that day. When the day is not today a window warns first: Load for <day> / Load for today /
+Cancel. A job on another day is marked plannedFor: the calendar shows it only on that day
+(not also on the day it was loaded), and the job page shows an amber bar "This job is on
+<day> — today is <today>. Certificates made today are dated today" with "Move job to today"
+for a mistake. Loading the sheet again from the job keeps its day. Certificates and the
+worksheet Date are unchanged: always the real day the unit is calibrated. Other loaders
+(job page, home, Today) still load for today. Tests: new suite 77.
+
 ## v1.640 — IBB: Manufacturer always Labcold, "IBB / Device", IBB models → IBB worksheet
 
 Radek (21 Nov 2026): on the IBB worksheet Generate PDF said "1 field to complete —

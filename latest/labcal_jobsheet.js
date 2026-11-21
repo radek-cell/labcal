@@ -1,4 +1,4 @@
-(window.LabCalBuild = window.LabCalBuild || {})['labcal_jobsheet.js'] = 'v1.640';  // file version — see labcal_build.js
+(window.LabCalBuild = window.LabCalBuild || {})['labcal_jobsheet.js'] = 'v1.641';  // file version — see labcal_build.js
 /* ---------------------------------------------------------------------
    LabCal — shared jobsheet module
    ---------------------------------------------------------------------
@@ -1267,7 +1267,9 @@
     var days = {};
     var add = function (iso) { if (iso) days[String(iso).slice(0, 10)] = true; };
     if (!job) return [];
-    add(job.day); add(job.openedAt); add(job.loadedAt);
+    add(job.day);
+    // v1.641: a job loaded for another day is not "worked on" the day it was loaded
+    if (!job.plannedFor) { add(job.openedAt); add(job.loadedAt); }
     (job.devices || []).forEach(function (d) {
       add(d.doneAt); add(d.notRequiredAt); add(d.editedAt); add(d.addedAt);
     });
@@ -1675,12 +1677,18 @@
   // and the engineer picks which ones to add (Select units window). Two
   // engineers on one job each add only the units they are doing. Without
   // opts.pick everything is added, as before (tests, older callers).
+  // v1.641 (Radek): opts.day — the day picked on the calendar. The job is put
+  // on that day (js.day); when it is not today it is marked js.plannedFor so the
+  // calendar shows it only there (not also on the day it was loaded) and the
+  // job page warns. Certificates are NOT affected: they are always dated the
+  // day the unit is really calibrated.
   function setCurrent(parsed, fileName, opts) {
     var pick = !!(opts && opts.pick);
+    var forDay = (opts && /^\d{4}-\d{2}-\d{2}$/.test(String(opts.day || ''))) ? String(opts.day) : todayIso();
     var js = {
       loadedAt: new Date().toISOString(),
       openedAt: new Date().toISOString(),
-      day: todayIso(),
+      day: forDay,
       fileName: fileName || '',
       customer: parsed.customer || '',
       callNumber: parsed.callNumber || '',
@@ -1688,6 +1696,7 @@
       visitDate: parsed.visitDate || '',
       address: parsed.address || '',
       department: parsed.department || '',
+      plannedFor: forDay !== todayIso() ? forDay : undefined,
       devices: (parsed.devices || []).map(function (d, i) {
         var s = suggestSheet(d);
         return {
@@ -1784,6 +1793,8 @@
       if (js.pickMode) existing.devices.forEach(function (d) { if (!serialKey(d.serial)) js.devices.push(d); });
       js.devices.forEach(function (d, i) { d.idx = i; });
       js.openedAt = existing.openedAt || js.openedAt;
+      // v1.641: reloading the sheet without a picked day keeps the job's planned day
+      if (!(opts && opts.day) && existing.plannedFor) { js.day = existing.day || existing.plannedFor; js.plannedFor = existing.plannedFor; }
       if (existing.startAt) js.startAt = existing.startAt;   // v1.624: job start time survives a reload of the sheet
     } else if (js.pickMode) {
       js.devices = [];          // v1.616: a new job starts empty — the engineer picks
@@ -1815,6 +1826,17 @@
     saveActiveJob();
     announce();
     return current();
+  }
+
+  // v1.641: job put on the wrong day by mistake — move the open job to today.
+  function moveCurrentToToday() {
+    var js = current(); if (!js) return null;
+    js.day = todayIso();
+    delete js.plannedFor;
+    writeJson(KEY_CURRENT, js);
+    saveActiveJob();
+    announce();
+    return js;
   }
 
   function clearCurrent() { writeJson(KEY_CURRENT, null); writeJson(KEY_HANDOFF, null); announce(); }
@@ -2331,6 +2353,7 @@
     // routing
     suggestSheet: suggestSheet,
     learnRoute: learnRoute,
+    moveCurrentToToday: moveCurrentToToday,
     forgetRoutes: forgetRoutes,
     routes: routes,
     routeCount: routeCount,

@@ -1,4 +1,4 @@
-(window.LabCalBuild = window.LabCalBuild || {})['labcal_pin.js'] = 'v1.640';  // file version — see labcal_build.js
+(window.LabCalBuild = window.LabCalBuild || {})['labcal_pin.js'] = 'v1.641';  // file version — see labcal_build.js
 /* ---------------------------------------------------------------------
    LabCal — 4-digit PIN pad (v1.594)
    ---------------------------------------------------------------------
