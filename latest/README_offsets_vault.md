@@ -3,6 +3,20 @@
 Load each offsets file **once, on the home page**. Every worksheet then picks it
 up automatically until the reference thermometer's certificate expires.
 
+## v1.640 — IBB: Manufacturer always Labcold, "IBB / Device", IBB models → IBB worksheet
+
+Radek (21 Nov 2026): on the IBB worksheet Generate PDF said "1 field to complete —
+Manufacturer" although "Labcold" was shown. The real field was a hidden one-option list;
+a reopen / saved readings / unit carried from another worksheet with an empty or "Other"
+manufacturer left it blank. Now #manufacturer is one plain read-only field, same font as
+the other fields, pinned to "Labcold" (nothing can change it). Header label "IBB / Device"
+with Blood Bank, Plasma Freezer, Platelet Incubator in that order (values unchanged, so
+set-point ranges and the certificate line "IBB — <device>" are as before). Routing: every
+model starting "IBB" goes to the IBB worksheet — first rule, before the MD rule, and over
+a remembered choice (IBB-RDBB2320MD used to go to Standard Medical). Excel import still
+reads old files ("IBB / Blood Bank" row). No calculation / tolerance / PDF content change.
+Tests: new suite 76.
+
 ## v1.639 — Job sheet: model wrapped onto two lines read as two units
 
 Radek (20 Nov 2026), ENQ146211 (Commissioning, Leighton Hospital). The model

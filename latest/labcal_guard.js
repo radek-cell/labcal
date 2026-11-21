@@ -1,4 +1,4 @@
-(window.LabCalBuild = window.LabCalBuild || {})['labcal_guard.js'] = 'v1.639';  // file version — see labcal_build.js
+(window.LabCalBuild = window.LabCalBuild || {})['labcal_guard.js'] = 'v1.640';  // file version — see labcal_build.js
 /* ---------------------------------------------------------------------
    LabCal — certificate identity guard (v1.550)
    ---------------------------------------------------------------------

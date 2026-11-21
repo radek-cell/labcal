@@ -1,4 +1,4 @@
-(window.LabCalBuild = window.LabCalBuild || {})['labcal_jobsheet.js'] = 'v1.639';  // file version — see labcal_build.js
+(window.LabCalBuild = window.LabCalBuild || {})['labcal_jobsheet.js'] = 'v1.640';  // file version — see labcal_build.js
 /* ---------------------------------------------------------------------
    LabCal — shared jobsheet module
    ---------------------------------------------------------------------
@@ -574,6 +574,11 @@
   // Rules are tried in order and the first hit wins. Anything that matches
   // nothing asks the engineer once, then remembers the answer.
   var RULES = [
+    // v1.640 (Radek): every model starting "IBB" takes the IBB worksheet —
+    // first, so "IBB-RDBB2320MD" no longer falls into the MD (Medical) rule.
+    // Also forced in suggestSheet, so a remembered choice cannot override it.
+    { modelMatch: /^IBB/,                          sheet: 'ibb' },
+
     // Named kit — unambiguous from the description itself.
     { match: /barkey|plasmatherm|plasma\s*therm/i, sheet: 'barkey' },
     { match: /cloud\s*temp|cloudtemp/i,            sheet: 'cloud_temp' },
@@ -737,6 +742,8 @@
   // Returns { sheet, why } — `why` is 'learned', 'rule' or '' (unknown).
   // What you have chosen before beats a built-in rule, so a correction sticks.
   function suggestSheet(device) {
+    // v1.640: IBB models always go to the IBB worksheet, whatever was chosen before.
+    if (/^IBB/.test(normalisedModel(device.model))) return { sheet: 'ibb', why: 'rule' };
     var learned = routeRecord(routes()[modelKey(device.model)]);
     if (learned && SHEETS[learned.sheet]) return { sheet: learned.sheet, why: 'learned' };
     return suggestFromRules(device);

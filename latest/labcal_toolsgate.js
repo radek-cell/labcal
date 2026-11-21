@@ -1,4 +1,4 @@
-(window.LabCalBuild = window.LabCalBuild || {})['labcal_toolsgate.js'] = 'v1.639';  // file version — see labcal_build.js
+(window.LabCalBuild = window.LabCalBuild || {})['labcal_toolsgate.js'] = 'v1.640';  // file version — see labcal_build.js
 /* ---------------------------------------------------------------------
    LabCal — Tools behind the PIN or the office password (v1.637)
    ---------------------------------------------------------------------
