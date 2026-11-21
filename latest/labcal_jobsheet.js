@@ -1,4 +1,4 @@
-(window.LabCalBuild = window.LabCalBuild || {})['labcal_jobsheet.js'] = 'v1.642';  // file version — see labcal_build.js
+(window.LabCalBuild = window.LabCalBuild || {})['labcal_jobsheet.js'] = 'v1.643';  // file version — see labcal_build.js
 /* ---------------------------------------------------------------------
    LabCal — shared jobsheet module
    ---------------------------------------------------------------------
@@ -1043,7 +1043,12 @@
   // back from those.
   function reconcileFromCertificates(jobRef, certificates) {
     var changed = false;
-    (certificates || []).forEach(function (c) {
+    // v1.643: a VOIDED certificate (and the revisions it replaced) is not
+    // evidence the unit was done — it must never tick the unit again
+    var C = global.LabCalCerts;
+    var live = (C && C.liveOnly) ? C.liveOnly(certificates || [])
+      : (certificates || []).filter(function (c) { return !c.voidedAt; });
+    live.forEach(function (c) {
       if ((c.jobRef || '') !== String(jobRef || '')) return;
       if (!c.serial) return;
       var existing = progressFor(jobRef)[serialKey(c.serial)];
@@ -2182,6 +2187,55 @@
     return true;
   }
 
+  // ---- v1.643 (Radek, 21 Nov 2026): VOID ------------------------------------
+  // After its certificate is voided (calibration page, PIN + reason) the unit
+  // goes back to TO DO: not done, not locked, no certificate. Its saved
+  // readings stay (the engineer decides whether to clear them); the next
+  // certificate gets a NEW number (labcal_certno.js). A short history of the
+  // voids stays on the unit (d.voids) for the job page.
+  // info: { certRef, reason, at }  →  true when a unit was reset
+  function voidUnit(jobRef, serial, uid, info) {
+    info = info || {};
+    var ref = String(jobRef || '').trim();
+    if (ref && jobKey((current() || {}).callNumber) !== jobKey(ref)) {
+      if (!jobsStore()[jobKey(ref)]) return false;
+      return withJob(ref, function () { return voidUnit(jobRef, serial, uid, info); });
+    }
+    var js = current(); if (!js) return false;
+    var live = (js.devices || []).filter(function (d) { return !d.duplicateMerged; });
+    var d = (uid ? live.filter(function (x) { return x.uid === uid; })[0] : null) ||
+      live.filter(function (x) { return serialKey(x.serial) && serialKey(x.serial) === serialKey(serial); })[0];
+    if (!d) return false;
+    // only when the voided certificate is the one the unit stands on (a voided
+    // old revision, or another unit's certificate, changes nothing here)
+    var mine = !info.certRef || !d.certRef || normCert(d.certRef) === normCert(info.certRef);
+    if (!mine) return false;
+    var at = info.at || new Date().toISOString();
+    d.voids = (d.voids || []).concat([{ certRef: info.certRef || d.certRef || '', reason: info.reason || '', at: at }]);
+    d.done = false;
+    d.doneAt = '';
+    d.certRef = '';
+    d.detail = '';
+    d.certPrint = '';
+    delete d.reissue; delete d.reopen; delete d.carriedOver;
+    writeJson(KEY_CURRENT, js);
+    saveActiveJob();
+    // the progress record (keyed by serial) must not put the tick back
+    var all = progressStore();
+    var job = all[String(js.callNumber || '')] || {};
+    [d.serial].concat(d.serialsBefore || []).forEach(function (sr) {
+      var k = serialKey(sr);
+      if (!k || !job[k]) return;
+      if (job[k].notRequired) { job[k].done = false; job[k].doneAt = ''; job[k].certRef = ''; job[k].detail = ''; }
+      else delete job[k];
+    });
+    all[String(js.callNumber || '')] = job;
+    writeJson(KEY_PROGRESS, all);
+    announce();
+    return true;
+  }
+  function normCert(v) { return String(v || '').toUpperCase().replace(/[^A-Z0-9]/g, ''); }
+
   // For a worksheet being opened: is its certified unit waiting for a revised certificate?
   function reissueFor(jobRef, serial) {
     var job = jobRef ? jobByRef(jobRef) : current();
@@ -2492,6 +2546,7 @@
     isCertLocked: isCertLocked,        // v1.638
     certLockFor: certLockFor,          // v1.638
     reopenUnit: reopenUnit,            // v1.638
+    voidUnit: voidUnit,                // v1.643
     arrivedFromList: arrivedFromList,
     progress: progress,
     isStarted: isStarted,

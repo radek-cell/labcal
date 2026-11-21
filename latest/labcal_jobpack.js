@@ -1,4 +1,4 @@
-(window.LabCalBuild = window.LabCalBuild || {})['labcal_jobpack.js'] = 'v1.642';  // file version — see labcal_build.js
+(window.LabCalBuild = window.LabCalBuild || {})['labcal_jobpack.js'] = 'v1.643';  // file version — see labcal_build.js
 /* ---------------------------------------------------------------------
    LabCal — job pack & certificate check (v1.550)
    ---------------------------------------------------------------------
@@ -13,6 +13,9 @@
        <folder>/README.txt
    Only the CURRENT certificate of each unit goes in (superseded ones stay
    on record in LabCal but are not packed).
+   v1.643: VOIDED certificates go in too, for LabCal Office — in voided/,
+   listed in the manifest (voided: [...], with reason, who, when) and marked
+   on their unit — but NEVER in the merged _ALL_certificates.pdf.
 
    CHECK — pick PDFs (or a job pack ZIP) from Files and LabCal says, for
    each one, whether it is the current certificate it has on record, an
@@ -243,6 +246,8 @@
     return global.LabCalCerts.all().then(function (list) {
       // v1.584: certificates in the bin never go in a pack
       var mine = list.filter(function (r) { return key(r.jobRef) === key(jobRef) && r.blob && !r.deletedAt; });
+      // v1.643: a voided certificate (and the revisions before it) is never current
+      if (global.LabCalCerts.liveOnly) mine = global.LabCalCerts.liveOnly(mine);
       var newest = {};
       mine.forEach(function (r) {
         var k = unitKeyOf(r), prev = newest[k];
@@ -252,6 +257,14 @@
             (!!prev.superseded === !!r.superseded && String(r.savedAt) > String(prev.savedAt))) newest[k] = r;
       });
       return Object.keys(newest).map(function (k) { return newest[k]; });
+    });
+  }
+
+  // v1.643: the voided certificates of a job (bin left out), oldest first
+  function voidedCertificatesFor(jobRef) {
+    return global.LabCalCerts.all().then(function (list) {
+      return list.filter(function (r) { return key(r.jobRef) === key(jobRef) && r.voidedAt && !r.deletedAt; })
+        .sort(function (a, b) { return String(a.savedAt) < String(b.savedAt) ? -1 : 1; });
     });
   }
 
@@ -275,8 +288,9 @@
     var folder = part(ref, 'NoJob') + (customer ? '_' + part(customer, '') : '') + '_' + todayIso();
     folder = folder.replace(/_+/g, '_');
 
-    return currentCertificatesFor(ref).then(function (certs) {
-      if (!certs.length) throw new Error('There are no certificates on file for job ' + (ref || '(no reference)') + ' yet.');
+    var voided = [];
+    return voidedCertificatesFor(ref).then(function (v) { voided = v; return currentCertificatesFor(ref); }).then(function (certs) {
+      if (!certs.length && !voided.length) throw new Error('There are no certificates on file for job ' + (ref || '(no reference)') + ' yet.');
       var summary = null;
       try {
         if (job && V && V.blobJobSummary && global.jspdf) summary = V.blobJobSummary(job, J.progressOf(job));
@@ -290,7 +304,13 @@
         ? F.get(ref).then(function (r) { if (r && r.blob && r.blob.size) jobsheet = r; }).catch(function (e) { console.warn('Jobsheet PDF not added to the pack:', e); })
         : Promise.resolve();
 
-      return sheetP.then(function () { return C.mergeRecords(certs, summary, onProgress); }).then(function (merged) {
+      // v1.643: a job whose only certificates are voided still makes a pack (the
+      // office must hear about the voids) — just without a merged certificates PDF
+      return sheetP.then(function () { return certs.length ? C.mergeRecords(certs, summary, onProgress) : { blob: null, none: true }; }).then(function (merged) {
+        if (merged.none) {
+          return Promise.all([summary ? C.sha256Of(summary) : Promise.resolve(''), jobsheet ? C.sha256Of(jobsheet.blob) : Promise.resolve('')])
+            .then(function (h) { if (summary) summary.__sha = h[0]; if (jobsheet) jobsheet.__sha = h[1]; return merged; });
+        }
         return Promise.all([C.sha256Of(merged.blob), summary ? C.sha256Of(summary) : Promise.resolve(''),
                             jobsheet ? C.sha256Of(jobsheet.blob) : Promise.resolve('')])
           .then(function (h) { merged.sha256 = h[0]; if (summary) summary.__sha = h[1]; if (jobsheet) jobsheet.__sha = h[2]; return merged; });
@@ -308,10 +328,25 @@
           certFile[r.id] = 'certificates/' + name;
           entries.push({ name: folder + '/certificates/' + name, data: r.blob });
         });
-        entries.unshift({ name: folder + '/' + part(ref, 'NoJob') + '_ALL_certificates.pdf', data: merged.blob });
-        if (summary) entries.splice(1, 0, { name: folder + '/' + part(ref, 'NoJob') + '_job_summary.pdf', data: summary });
+        // v1.643: voided certificates — own folder, never in the merged PDF
+        var voidFile = {};
+        voided.forEach(function (r) {
+          var name = uniqueName('VOIDED_' + (r.filename || ('certificate_' + r.id + '.pdf')));
+          voidFile[r.id] = 'voided/' + name;
+          if (r.blob) entries.push({ name: folder + '/voided/' + name, data: r.blob });
+          else voidFile[r.id] = '';
+        });
+        var head = 0;
+        if (merged.blob) entries.splice(head++, 0, { name: folder + '/' + part(ref, 'NoJob') + '_ALL_certificates.pdf', data: merged.blob });
+        if (summary) entries.splice(head++, 0, { name: folder + '/' + part(ref, 'NoJob') + '_job_summary.pdf', data: summary });
         var sheetName = part(ref, 'NoJob') + '_jobsheet.pdf';
-        if (jobsheet) entries.splice(summary ? 2 : 1, 0, { name: folder + '/' + sheetName, data: jobsheet.blob });
+        if (jobsheet) entries.splice(head++, 0, { name: folder + '/' + sheetName, data: jobsheet.blob });
+        function voidLine(r) {
+          return { file: voidFile[r.id] || '', certRef: r.certRef || '', rev: r.rev || 1, sha256: r.sha256 || '',
+                   savedAt: r.savedAt || '', sheet: r.sheet || '', serial: r.serial || '', model: r.model || '', uid: r.unitUid || '',
+                   status: 'VOIDED', voidedAt: r.voidedAt || '', voidedBy: r.voidedBy || '', reason: r.voidReason || '' };
+        }
+        var voidClaimed = {};
 
         // manifest: every unit of the job, and which file is its certificate
         var claimed = {};
@@ -320,7 +355,13 @@
           var rec = certs.filter(function (r) { return d.uid && r.unitUid === d.uid; })[0] ||
                     certs.filter(function (r) { return !claimed[r.id] && key(r.serial) && key(r.serial) === key(d.serial); })[0] || null;
           if (rec) claimed[rec.id] = true;
+          var dv = voided.filter(function (r) {
+            if (voidClaimed[r.id]) return false;
+            return (d.uid && r.unitUid) ? r.unitUid === d.uid : (key(r.serial) && key(r.serial) === key(d.serial));
+          });
+          dv.forEach(function (r) { voidClaimed[r.id] = true; });
           units.push({
+            voided: dv.map(voidLine),        // v1.643: this unit's voided certificates (empty = none)
             n: i + 1, uid: d.uid || '', model: d.model || d.equipment || '', serial: d.serial || '', location: d.location || '',
             // v1.586: what "Combine job packs" needs to rebuild the job summary
             sheet: d.sheet || '', reason: (d.notRequired && !d.done) ? (d.notRequiredReason || d.reason || '') : '', detail: d.detail || '',
@@ -339,7 +380,9 @@
           kind: 'labcal-job-pack', version: 1, created: new Date().toISOString(),
           engineer: engineerName(), app: (global.LabCalBuild && global.LabCalBuild['labcal_jobpack.js']) || '',
           job: { ref: ref, customer: customer }, units: units,
-          files: { all: { file: part(ref, 'NoJob') + '_ALL_certificates.pdf', sha256: merged.sha256 || '' },
+          // v1.643: every voided certificate of the job, for LabCal Office
+          voided: voided.map(voidLine),
+          files: { all: merged.blob ? { file: part(ref, 'NoJob') + '_ALL_certificates.pdf', sha256: merged.sha256 || '' } : null,
                    summary: summary ? { file: part(ref, 'NoJob') + '_job_summary.pdf', sha256: summary.__sha || '' } : null,
                    jobsheet: jobsheet ? { file: sheetName, sha256: jobsheet.__sha || '', original: jobsheet.fileName || '', loadedAt: jobsheet.savedAt || '' } : null }
         };
@@ -348,14 +391,15 @@
         entries.push({ name: folder + '/README.txt', data:
           'LabCal job pack - ' + ref + (customer ? ' - ' + customer : '') + '\r\n' +
           'Created ' + readmeDate() + '\r\n\r\n' +
-          part(ref, 'NoJob') + '_ALL_certificates.pdf  - job summary followed by every current certificate\r\n' +
+          (merged.blob ? part(ref, 'NoJob') + '_ALL_certificates.pdf  - job summary followed by every current certificate\r\n' : '') +
           (jobsheet ? sheetName + '  - the jobsheet this job was loaded from (' + (jobsheet.fileName || '') + ')\r\n' : '') +
-          'certificates/  - each current certificate on its own\r\n' +
+          (certs.length ? 'certificates/  - each current certificate on its own\r\n' : '') +
+          (voided.length ? 'voided/  - ' + voided.length + ' VOIDED certificate' + (voided.length === 1 ? '' : 's') + ' - NOT valid, kept for the record (reasons in the checklist); never send to the customer\r\n' : '') +
           sm.name + '  - LabCal\'s checklist: which file belongs to which unit, with a fingerprint of each' + (sm.sealed ? ' (sealed - read by LabCal)' : '') + '\r\n\r\n' +
           'To check these files later: LabCal > Calibration > Check certificates, and pick this ZIP or the PDFs.\r\n' });
         return makeZip(entries).then(function (zip) {
           return { blob: zip, name: folder + '.zip', ids: certs.map(function (r) { return r.id; }),
-                   count: certs.length, units: units, jobsheet: !!jobsheet };
+                   count: certs.length, voided: voided.length, units: units, jobsheet: !!jobsheet };
         });
         });
       });
@@ -375,7 +419,8 @@
     if (!C || !C.supported()) return Promise.reject(new Error('Certificate storage is not available.'));
     var job = J && J.jobByRef ? J.jobByRef(jobRef) : null;
     var ref = (job && job.callNumber) || jobRef || '';
-    return currentCertificatesFor(ref).then(function (certs) {
+    var voidedList = [];
+    return voidedCertificatesFor(ref).then(function (v) { voidedList = v; return currentCertificatesFor(ref); }).then(function (certs) {
       var devices = job ? (job.devices || []).filter(function (d) { return !d.duplicateMerged; }) : [];
       var claimed = {}, recOf = [];
       devices.forEach(function (d, i) {
@@ -423,9 +468,12 @@
       add('warn', stray, '1 certificate on this job matches no unit on the list', '# certificates on this job match no unit on the list');
       add('info', revised, '1 revised certificate (the latest one goes in the pack)', '# revised certificates (the latest ones go in the pack)');
       add('info', verified, '1 verification', '# verifications');
+      add('info', voidedList.map(function (r) {
+        return [r.model || '', r.serial || 'no serial', r.certRef || r.filename || ''].filter(Boolean).join(' · ') + (r.voidReason ? ' — ' + r.voidReason : '');
+      }), '1 VOIDED certificate — goes in the pack marked VOIDED, not in the merged PDF', '# VOIDED certificates — go in the pack marked VOIDED, not in the merged PDF');
       add('info', notReq, '1 unit marked not required', '# units marked not required');
       return {
-        ref: ref, total: devices.length, certificates: certs.length,
+        ref: ref, total: devices.length, certificates: certs.length, voided: voidedList.length,
         warn: items.filter(function (x) { return x.level === 'warn'; }).length,
         block: items.filter(function (x) { return x.level === 'block'; }).length, items: items
       };
@@ -463,9 +511,11 @@
       }
       // v1.584: identical to a certificate that was deleted (in the bin)
       if (byHash && byHash.deletedAt) { res.record = byHash; res.status = 'removed'; return res; }
+      // v1.643: identical to a certificate that was VOIDED — not valid
+      if (byHash && byHash.voidedAt) { res.record = byHash; res.status = 'voided'; return res; }
       if (byHash) {
         var newer = records.filter(sameUnitAs(byHash)).filter(function (r) {
-          return r.id !== byHash.id && !r.deletedAt && String(r.savedAt) > String(byHash.savedAt);
+          return r.id !== byHash.id && !r.deletedAt && !r.voidedAt && String(r.savedAt) > String(byHash.savedAt);
         }).sort(function (a, b) { return String(a.savedAt) < String(b.savedAt) ? 1 : -1; });
         res.record = byHash;
         if (byHash.superseded || newer.length) { res.status = 'old'; res.newer = newer[0] || null; }
@@ -559,7 +609,7 @@
           if (!job) return { ref: jobRefs[k], known: false, missing: [] };
           var missing = (job.devices || []).filter(function (d) { return d.done && !d.duplicateMerged; }).filter(function (d) {
             var mine = records.filter(function (r) {
-              return !r.superseded && !r.deletedAt && ((d.uid && r.unitUid === d.uid) || (key(r.serial) === key(d.serial) && key(r.jobRef) === k));
+              return !r.superseded && !r.deletedAt && !r.voidedAt && ((d.uid && r.unitUid === d.uid) || (key(r.serial) === key(d.serial) && key(r.jobRef) === k));
             });
             return !mine.some(function (r) { return okIds[r.id]; });
           });

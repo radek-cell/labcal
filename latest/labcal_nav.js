@@ -1,4 +1,4 @@
-(window.LabCalBuild = window.LabCalBuild || {})['labcal_nav.js'] = 'v1.642';  // file version — see labcal_build.js
+(window.LabCalBuild = window.LabCalBuild || {})['labcal_nav.js'] = 'v1.643';  // file version — see labcal_build.js
 /* ---------------------------------------------------------------------
    LabCal — Back / Home on the worksheet toolbar (v1.563)
    ---------------------------------------------------------------------
@@ -590,8 +590,11 @@
     earlierVisits(u).then(function (v) {
       if (seq !== histSeq) return;                      // the form changed meanwhile
       histFor = sig; histVisits = v;
-      if (!v.length) { el.hidden = true; el.innerHTML = ''; el.removeAttribute('title'); return; }
-      var e = v[0];
+      // v1.643: a voided certificate is not a calibration — the line names the
+      // newest valid one (the panel still lists the voided ones, marked)
+      var valid = v.filter(function (x) { return !x.voidedAt; });
+      if (!valid.length) { el.hidden = true; el.innerHTML = ''; el.removeAttribute('title'); return; }
+      var e = valid[0];
       var txt = 'Calibrated before: ' + dmy(e.savedAt || e.day) + ' · ' + (e.certRef || e.summary || e.filename) +
         (e.jobRef ? ' · job ' + e.jobRef : '') + (e.location ? ' · ' + e.location : '');
       el.innerHTML = '<span aria-hidden="true">↺</span><span class="lchl-txt">' + esc(txt) + '</span>' +
@@ -614,7 +617,8 @@
     var v = histVisits, u = formUnit();
     if (!v.length) return;
     var items = v.map(function (e) {
-      var l1 = dmy(e.savedAt || e.day) + ' · ' + (e.certRef || e.summary || e.filename) + (Number(e.rev) > 1 ? ' (rev ' + e.rev + ')' : '');
+      var l1 = dmy(e.savedAt || e.day) + ' · ' + (e.certRef || e.summary || e.filename) + (Number(e.rev) > 1 ? ' (rev ' + e.rev + ')' : '') +
+        (e.voidedAt ? ' · VOIDED' + (e.voidReason ? ' — ' + e.voidReason : '') : '');
       var l2 = [e.jobRef ? 'job ' + e.jobRef : '', e.site, e.location, e.model, SHEET_NAMES[e.sheet] || e.sheet].filter(Boolean).join(' · ');
       return '<div class="lcp-item"><div class="lcp-l1">' + esc(l1) + '</div><div class="lcp-l2">' + esc(l2) + '</div></div>';
     }).join('');
@@ -682,7 +686,7 @@
     return C.all().then(function (list) {
       var best = null;
       (list || []).forEach(function (r) {
-        if (!r || r.deletedAt || !(r.blob instanceof Blob) || !r.blob.size) return;
+        if (!r || r.deletedAt || r.voidedAt || !(r.blob instanceof Blob) || !r.blob.size) return;   // v1.643: never a voided one
         if (String(r.jobRef || '').trim().toUpperCase() !== rk || serialKey(r.serial) !== sk) return;
         if (!best || String(r.savedAt || '') > String(best.savedAt || '')) best = r;
       });

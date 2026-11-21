@@ -3,6 +3,29 @@
 Load each offsets file **once, on the home page**. Every worksheet then picks it
 up automatically until the reference thermometer's certificate expires.
 
+## v1.643 — Void certificate (replaces Delete for an issued certificate)
+
+Radek (21 Nov 2026): an issued certificate is never deleted — it is VOIDED.
+
+- **Void** (unit row, "Other certificates for this job", certificate list, certificates not tied
+  to a job) needs a **reason** — Wrong unit / Wrong serial number / Calibration not done /
+  Duplicate certificate, or Other… with typed text — and then the **PIN**. Cannot be undone.
+- The PDF stays unchanged and is marked VOIDED on screen (who — engineer name from the
+  offsets file —, when, why). View still opens it; Share / Save, Reopen and Copy no. are gone.
+- The number is reserved for ever — also against the same unit. The unit goes back to
+  **to do**: not done, not locked, no valid certificate. Its saved readings stay. Its next
+  certificate gets a **new number** (rev 1). Earlier revisions of the voided certificate never
+  count as current again.
+- **Job pack**: voided certificates go in `voided/` (file names start VOIDED_), listed in the
+  sealed checklist (`voided` + on their unit) with status, reason, who and when — for LabCal
+  Office. Never in `_ALL_certificates.pdf` / Merge job & share. A job with only voided
+  certificates still makes a pack. Save job pack review lists them.
+- **Check certificates**: a PDF identical to a voided one shows **VOIDED** — do not send.
+- **Clear day** is removed (an issued certificate is only ever voided, one at a time).
+  Delete stays for whole jobs (they go to the bin with their certificates, as in 1.642).
+- Backups keep the void. Register and worksheet history show VOIDED.
+- No calculation, tolerance, rounding, PDF layout or number format change.
+
 ## v1.642 — Bin takes the job's work with it; Swap; Delete for good; certificate numbers never come back
 
 Radek (21 Nov 2026), Leighton Hospital ENQ146211: readings saved, job deleted, the same

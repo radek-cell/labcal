@@ -1,4 +1,4 @@
-(window.LabCalBuild = window.LabCalBuild || {})['labcal_units.js'] = 'v1.642';  // file version — see labcal_build.js
+(window.LabCalBuild = window.LabCalBuild || {})['labcal_units.js'] = 'v1.643';  // file version — see labcal_build.js
 /* ---------------------------------------------------------------------
    LabCal — per-unit worksheet snapshots
    ---------------------------------------------------------------------
