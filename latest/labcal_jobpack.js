@@ -1,4 +1,4 @@
-(window.LabCalBuild = window.LabCalBuild || {})['labcal_jobpack.js'] = 'v1.641';  // file version — see labcal_build.js
+(window.LabCalBuild = window.LabCalBuild || {})['labcal_jobpack.js'] = 'v1.642';  // file version — see labcal_build.js
 /* ---------------------------------------------------------------------
    LabCal — job pack & certificate check (v1.550)
    ---------------------------------------------------------------------

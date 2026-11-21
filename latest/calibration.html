@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="labcal-build" content="v1.641">
+<meta name="labcal-build" content="v1.642">
 <script src="labcal_build.js"></script>
 <script src="labcal_errlog.js"></script>
 <script src="labcal_shell.js"></script>  <!-- v1.619: side menu -->
@@ -862,7 +862,7 @@ html.lcs-view-ws #packCombinePanel,html.lcs-view-ws #straysPanel{display:none!im
 
   <footer>
     <span>LabCal Calibration Suite · offline worksheet toolkit</span>
-    <span id="footYear">v1.641</span>
+    <span id="footYear">v1.642</span>
   </footer>
 
 </div>
@@ -1107,7 +1107,7 @@ function renderDate(){
   const d = new Date();
   const opts = {day:'2-digit', month:'short', year:'numeric'};
   document.getElementById('todayDate').textContent = d.toLocaleDateString('en-GB', opts).toUpperCase();
-  document.getElementById('footYear').textContent = 'v1.641 · ' + d.getFullYear();
+  document.getElementById('footYear').textContent = 'v1.642 · ' + d.getFullYear();
 }
 
 
@@ -1538,10 +1538,15 @@ async function binHtml(){
     return `<div class="binrow">
       <div class="bin-main">
         <div class="bin-name">Job ${jesc(j.callNumber || '(no job reference)')}${j.customer?' · '+jesc(j.customer):''}</div>
-        <div class="bin-meta">${j.units} unit${j.units===1?'':'s'}${n?` · ${n} certificate${n===1?'':'s'}`:''}${j.fileName?' · '+jesc(j.fileName):''} · deleted ${jesc(fmtStamp(j.deletedAt))} · removed for good ${jesc(fmtDay(j.purgeOn))}</div>
-        ${j.onList?'<div class="bin-meta warn">This job number is on the list again (jobsheet loaded again), so this copy cannot be restored over it.</div>':''}
+        <div class="bin-meta">${j.units} unit${j.units===1?'':'s'}${j.done?` (${j.done} done)`:''}${j.withReadings?` · readings for ${j.withReadings}`:''}${n?` · ${n} certificate${n===1?'':'s'}`:''}${j.fileName?' · '+jesc(j.fileName):''} · deleted ${jesc(fmtStamp(j.deletedAt))} · removed for good ${jesc(fmtDay(j.purgeOn))}</div>
+        ${j.migrateNote==='shared'?'<div class="bin-meta warn">Deleted before v1.642: its saved readings stayed with the job of the same number on the list.</div>':''}
+        ${j.migrateNote==='older'?'<div class="bin-meta warn">Deleted before v1.642: its saved readings went with the newer copy of this job in the bin.</div>':''}
+        ${j.onList?'<div class="bin-meta warn">This job number is on the list now. Restore swaps them: the job on the list goes to the bin with its own readings and certificates, and can be swapped back.</div>':''}
       </div>
-      <div class="bin-ctl">${j.onList?'':`<button class="cbtn" type="button" data-binjob="${jesc(j.id)}">Restore</button>`}</div>
+      <div class="bin-ctl">
+        <button class="cbtn" type="button" data-binjob="${jesc(j.id)}">${j.onList?'Swap in':'Restore'}</button>
+        <button class="cbtn danger" type="button" data-binpurge="${jesc(j.id)}">Delete for good</button>
+      </div>
     </div>`;
   }).join('');
   const certRows = loose.map(c=>`<div class="binrow">
@@ -1557,7 +1562,7 @@ async function binHtml(){
   return `<div class="binbox">
     <button class="jfold binfold" type="button" id="binToggle" aria-expanded="true">
       <span class="jf-chev" aria-hidden="true">▾</span> 🗑 Bin — ${what} <span class="jf-act">Hide</span></button>
-    <div class="bin-note">Deleted jobs and certificates are kept here for ${days} days, then removed for good. A certificate number in the bin stays reserved — using it again for another unit still gives the warning.</div>
+    <div class="bin-note">Deleted jobs and certificates are kept here for ${days} days, then removed for good. A certificate number stays reserved for good — also after the certificate is removed from the bin; it is never given to another unit.</div>
     ${jobRows}${certRows}
   </div>`;
 }
@@ -1572,21 +1577,90 @@ function bindBin(){
     }catch(e){ jobToast = {text:'Could not restore: '+(e&&e.message?e.message:e), bad:true}; }
     renderCalibrationPage();
   }));
-  dayPanel.querySelectorAll('[data-binjob]').forEach(b=>b.addEventListener('click', async ()=>{
-    const id = b.getAttribute('data-binjob');
-    const res = LabCalJobsheet.restoreJob(id);
-    if(!res.ok){
-      jobToast = {text: res.reason==='exists' ? `Job ${res.key} is already on the list, so the copy in the bin cannot be restored over it.` : 'That job is no longer in the bin.', bad:true};
-      renderCalibrationPage(); return;
-    }
-    let n = 0;
-    try{ if(window.LabCalCerts && LabCalCerts.supported()) n = await LabCalCerts.untrashWith(id); }catch(e){ console.warn('Certificates not restored with the job:', e); }
-    LabCalJobsheet.setActiveJob(res.key);
-    viewMode = 'job'; certJobFilter = null; jobFilter = '';
-    jobToast = {text:`Job restored from the bin${n?` with ${n} certificate${n===1?'':'s'}`:''}.`};
-    renderCalibrationPage();
-  }));
+  dayPanel.querySelectorAll('[data-binjob]').forEach(b=>b.addEventListener('click', ()=>restoreBinnedJob(b.getAttribute('data-binjob'))));
+  dayPanel.querySelectorAll('[data-binpurge]').forEach(b=>b.addEventListener('click', ()=>purgeBinnedJob(b.getAttribute('data-binpurge'))));
 }
+
+// v1.642: the certificates that belong to a job (by job number or unit id).
+async function liveCertsOfJob(js){
+  if(!js || !window.LabCalCerts || !LabCalCerts.supported()) return [];
+  const k = LabCalJobsheet.jobKey(js.callNumber || '');
+  const uids = new Set((js.devices||[]).map(d=>d.uid).filter(Boolean));
+  return (await LabCalCerts.all()).filter(r=>!r.deletedAt &&
+    ((r.jobRef && LabCalJobsheet.jobKey(r.jobRef) === k) || (r.unitUid && uids.has(r.unitUid))));
+}
+// v1.642 (Radek: option A): Restore. If the same job number is on the list,
+// the two are SWAPPED — the job on the list (with its readings and
+// certificates) goes to the bin first, so nothing is lost. PIN for a swap.
+async function restoreBinnedJob(id){
+  const entry = LabCalJobsheet.binnedJobs().filter(j=>j.id===id)[0];
+  if(!entry){ jobToast = {text:'That job is no longer in the bin.', bad:true}; renderCalibrationPage(); return; }
+  let swapCerts = [];
+  if(entry.onList){
+    const onList = LabCalJobsheet.jobByRef(entry.key);
+    const p = onList ? LabCalJobsheet.progressOf(LabCalJobsheet.jobSnapshot(entry.key)) : {total:0, done:0};
+    try{ swapCerts = await liveCertsOfJob(onList); }catch(e){ console.warn('Certificates of the job on the list could not be read:', e); }
+    const unsaved = swapCerts.filter(r=>LabCalCerts.isUnsaved && LabCalCerts.isUnsaved(r)).length;
+    const lines = [
+      `Job ${entry.callNumber || entry.key} is on the list now (${p.total} unit${p.total===1?'':'s'}${p.done?`, ${p.done} done`:''}${swapCerts.length?`, ${swapCerts.length} certificate${swapCerts.length===1?'':'s'}`:''}).`,
+      '',
+      `Swap it with the copy in the bin (deleted ${fmtStamp(entry.deletedAt)}, ${entry.units} unit${entry.units===1?'':'s'}${entry.withReadings?`, readings for ${entry.withReadings}`:''})?`,
+      '',
+      'The job on the list goes to the bin with its readings and certificates — it can be swapped back the same way.'
+    ];
+    if(unsaved) lines.push('', `⚠ ${unsaved} of its certificates ${unsaved===1?'has':'have'} NOT been saved or shared yet.`);
+    if(!confirm(lines.join('\n'))) return;
+    if(!window.LabCalPin){ alert('The PIN pad (labcal_pin.js) did not load, so the jobs cannot be swapped. Reload LabCal while online.'); return; }
+    if(!await LabCalPin.ask({ title: 'Swap job ' + (entry.callNumber || ''), message: 'Enter the 4-digit PIN to swap the job on the list with the copy in the bin.' })) return;
+  }
+  const res = LabCalJobsheet.restoreJob(id, {swap: entry.onList});
+  let certNote = '';
+  if(res.swapped && swapCerts.length){
+    try{ await LabCalCerts.trash(swapCerts.map(r=>r.id), {binnedWith: res.swapped.id}); }
+    catch(e){ certNote = ' The certificates of the job that went to the bin could not be moved: ' + (e&&e.message?e.message:e); }
+  }
+  if(!res.ok){
+    jobToast = {text: res.reason==='storage' ? (res.message || 'Storage is full — the job could not be restored.') + (res.swapped ? ' The job that was on the list is in the bin.' : '') + certNote
+      : res.reason==='exists' ? `Job ${res.key} is already on the list.` : 'That job is no longer in the bin.', bad:true};
+    renderCalibrationPage(); return;
+  }
+  let n = 0;
+  try{ if(window.LabCalCerts && LabCalCerts.supported()) n = await LabCalCerts.untrashWith(id); }catch(e){ console.warn('Certificates not restored with the job:', e); }
+  LabCalJobsheet.setActiveJob(res.key);
+  viewMode = 'job'; certJobFilter = null; jobFilter = '';
+  jobToast = {text: (res.swapped ? 'Jobs swapped: the copy from the bin is back' : 'Job restored from the bin') +
+    `${n?` with ${n} certificate${n===1?'':'s'}`:''}.` + (res.swapped ? ' The job that was on the list is now in the bin.' : '') + certNote, bad: !!certNote};
+  renderCalibrationPage();
+}
+// v1.642: Delete for good — one bin entry now, PIN. Its certificates stay in
+// the certificate bin for their own 30 days (and their numbers stay reserved).
+async function purgeBinnedJob(id){
+  const entry = LabCalJobsheet.binnedJobs().filter(j=>j.id===id)[0];
+  if(!entry) return;
+  if(!confirm(`Delete job ${entry.callNumber || entry.key} from the bin for good?\n\nIts saved readings and ticks${entry.withReadings?` (readings for ${entry.withReadings} unit${entry.withReadings===1?'':'s'})`:''} are removed and cannot be restored.\nIts certificates stay in the bin for their own 30 days; their numbers stay reserved.`)) return;
+  if(!window.LabCalPin){ alert('The PIN pad (labcal_pin.js) did not load. Reload LabCal while online.'); return; }
+  if(!await LabCalPin.ask({ title: 'Delete for good ' + (entry.callNumber || ''), message: 'Enter the 4-digit PIN to remove this job from the bin for good.' })) return;
+  LabCalJobsheet.purgeBinEntry(id);
+  jobToast = {text:`Job ${entry.callNumber || entry.key} removed from the bin for good.`};
+  renderCalibrationPage();
+}
+// v1.642: on the job page — an earlier copy of this job number is in the bin.
+function binCopyHtml(js){
+  if(!js || !LabCalJobsheet.binnedJobs) return '';
+  const k = LabCalJobsheet.jobKey(js.callNumber || '');
+  const copies = LabCalJobsheet.binnedJobs().filter(j=>j.key === k);
+  if(!copies.length) return '';
+  const c = copies[0];
+  return `<div class="lday-bar" id="binCopyBar">
+      <div><b>An earlier copy of job ${jesc(js.callNumber || '')} is in the bin.</b>
+      <span>Deleted ${jesc(fmtStamp(c.deletedAt))} · ${c.units} unit${c.units===1?'':'s'}${c.done?` (${c.done} done)`:''}${c.withReadings?` · readings for ${c.withReadings}`:''}${copies.length>1?` · ${copies.length} copies in the bin`:''}. This job started fresh — its worksheets are its own.</span></div>
+      <button class="jbtn mini" type="button" data-binswap="${jesc(c.id)}">Swap with the copy in the bin</button>
+    </div>`;
+}
+document.addEventListener('click', ev=>{
+  const b = ev.target && ev.target.closest && ev.target.closest('[data-binswap]');
+  if(b) restoreBinnedJob(b.getAttribute('data-binswap'));
+});
 
 function bindDayView(){
   const go = iso => { selDay = iso; calMonth = iso; jobToast = null; renderCalibrationPage(); };
@@ -1991,7 +2065,7 @@ function bindBackupNudge(js){
     const label = btn.textContent;
     btn.disabled = true; btn.textContent = 'Packing…';
     try{
-      const pack = await LabCalBackup.build({ appVersion: 'v1.641' });
+      const pack = await LabCalBackup.build({ appVersion: 'v1.642' });
       const blob = LabCalBackup.toBlob(pack);
       if(blob.size > LabCalBackup.SIZE_WARN_BYTES &&
          !confirm('This backup is larger than expected ('+Math.round(blob.size/1024)+' KB).\n\nVery large files can hang the Files app when it tries to preview them. Save it anyway?')) return;
@@ -2729,7 +2803,7 @@ function renderJobPanel(){
   const html = `
     ${jobBarHtml()}
     ${toastHtml()}
-    ${plannedDayHtml(js)}
+    ${plannedDayHtml(js)}${binCopyHtml(js)}
     ${backupNudgeHtml(js, live, p)}
     ${packReview && packReview.ref === js.callNumber ? packReviewHtml(packReview) : ''}
     <div class="job-head">
@@ -4034,20 +4108,15 @@ async function deleteOpenJob(){
   if(!js || !LabCalJobsheet.binJob) return;
   const ref = js.callNumber || '';
   const k = LabCalJobsheet.jobKey(ref);
-  const uids = new Set((js.devices||[]).map(d=>d.uid).filter(Boolean));
   let certs = [];
-  try{
-    if(window.LabCalCerts && LabCalCerts.supported()){
-      certs = (await LabCalCerts.all()).filter(r=>!r.deletedAt &&
-        ((r.jobRef && LabCalJobsheet.jobKey(r.jobRef) === k) || (r.unitUid && uids.has(r.unitUid))));
-    }
-  }catch(e){ console.warn('Certificates of the job could not be read:', e); }
+  try{ certs = await liveCertsOfJob(js); }catch(e){ console.warn('Certificates of the job could not be read:', e); }
   const p = LabCalJobsheet.progress();
   const unsaved = certs.filter(r=>LabCalCerts.isUnsaved && LabCalCerts.isUnsaved(r)).length;
   const lines = [
     `Delete job ${ref || '(no job reference)'}${js.customer?' — '+js.customer:''}?`,
     '',
     `It moves to the bin with its ${p.total} unit${p.total===1?'':'s'}${p.done?` (${p.done} done)`:''}${certs.length?` and ${certs.length} certificate${certs.length===1?'':'s'}`:''}.`,
+    'Its saved readings and ticks go with it — the same job number loaded again starts with empty worksheets.',
     `Restore it within ${LabCalJobsheet.BIN_DAYS||30} days from the calendar page → Bin; after that it is removed for good.`
   ];
   if(certs.length) lines.push('', `⚠ This job already has ${certs.length} certificate${certs.length===1?'':'s'}. Their numbers stay reserved while in the bin.`);

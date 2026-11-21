@@ -1,4 +1,4 @@
-(window.LabCalBuild = window.LabCalBuild || {})['labcal_testmode.js'] = 'v1.641';  // file version — see labcal_build.js
+(window.LabCalBuild = window.LabCalBuild || {})['labcal_testmode.js'] = 'v1.642';  // file version — see labcal_build.js
 /* ---------------------------------------------------------------------
    LabCal — TEST MODE (v1.547)
    ---------------------------------------------------------------------

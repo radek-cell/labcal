@@ -1,4 +1,4 @@
-(window.LabCalBuild = window.LabCalBuild || {})['labcal_jobsheet.js'] = 'v1.641';  // file version — see labcal_build.js
+(window.LabCalBuild = window.LabCalBuild || {})['labcal_jobsheet.js'] = 'v1.642';  // file version — see labcal_build.js
 /* ---------------------------------------------------------------------
    LabCal — shared jobsheet module
    ---------------------------------------------------------------------
@@ -1441,10 +1441,117 @@
 
   // ---- bin (v1.584, Radek) ------------------------------------------------
   // "Delete job" moves the job off the list into the bin, where it stays for
-  // BIN_DAYS and can be restored. Only the job's entry moves: its ticks,
-  // added units, corrections and saved readings stay where they are, so a
-  // restored job comes back exactly as it was. Its certificates are moved to
-  // the certificate bin by the page (LabCalCerts.trash with binnedWith = id).
+  // BIN_DAYS and can be restored. Its certificates are moved to the
+  // certificate bin by the page (LabCalCerts.trash with binnedWith = id).
+  //
+  // v1.642 (Radek, 21 Nov 2026): the job's WORK goes into the bin with it.
+  // Until 1.641 only the job's entry moved; its ticks, added units,
+  // corrections and saved readings stayed in storage under the job number +
+  // serial, so loading the same job sheet again (same ENQ, same serials)
+  // picked all of it up again — the "fresh" job came back half done and the
+  // certified units locked. Now binJob() takes that work out of storage and
+  // keeps it in the bin entry (entry.data); restoreJob() puts it back.
+  //  • the same ENQ added again starts with empty worksheets;
+  //  • restoring while the same ENQ is on the list SWAPS them (Radek: option A):
+  //    the job on the list goes to the bin with its own work, nothing is lost,
+  //    and it can be swapped back the same way;
+  //  • "Delete for good" (PIN, on the page) removes one bin entry now.
+  // Old bin entries (made by 1.584–1.641, no entry.data) are fixed once by
+  // migrateBin() — safe to run again, it only touches entries without data.
+  var UNIT_PREFIX = 'labcal.unit.';
+  var LIVE_PREFIXES = ['labcal.live.q.', 'labcal.live.res.', 'labcal.live.plan.'];
+  var JOB_STORES = [KEY_PROGRESS, KEY_EXTRA, KEY_FIXES, KEY_DUPOK];
+  function refKey(v) { return String(v || '').toUpperCase().replace(/[^A-Z0-9]/g, ''); }
+  // which job a storage key belongs to ('' = none)
+  function jobOfStorageKey(k) {
+    if (k.indexOf(UNIT_PREFIX) === 0) {
+      var parts = k.slice(UNIT_PREFIX.length).split('.');   // sheet . job . serial
+      return parts.length >= 3 ? refKey(parts[1]) : '';
+    }
+    for (var i = 0; i < LIVE_PREFIXES.length; i++) {
+      if (k.indexOf(LIVE_PREFIXES[i]) === 0) return refKey(k.slice(LIVE_PREFIXES[i].length).split('|')[0]);
+    }
+    return '';
+  }
+  // Everything in working storage that belongs to job `ref`.
+  // → { stores: { <storeKey>: { <jobRef as stored>: value } }, keys: { <storage key>: raw text } }
+  function collectJobData(ref) {
+    var want = refKey(ref), out = { stores: {}, keys: {} };
+    if (!want) return out;
+    JOB_STORES.forEach(function (sk) {
+      var all = readJson(sk, {}) || {};
+      Object.keys(all).forEach(function (r) {
+        if (refKey(r) !== want) return;
+        (out.stores[sk] = out.stores[sk] || {})[r] = all[r];
+      });
+    });
+    var s = null; try { s = global.localStorage; } catch (e) {}
+    if (s) {
+      for (var i = 0; i < s.length; i++) {
+        var k = s.key(i);
+        if (k && jobOfStorageKey(k) === want) { try { out.keys[k] = s.getItem(k); } catch (e) {} }
+      }
+    }
+    return out;
+  }
+  function dataCounts(data) {
+    var serials = {};
+    Object.keys((data && data.keys) || {}).forEach(function (k) {
+      if (k.indexOf(UNIT_PREFIX) !== 0) return;
+      var parts = k.slice(UNIT_PREFIX.length).split('.');
+      if (parts[2]) serials[refKey(parts[2])] = true;
+    });
+    var prog = 0;
+    var ps = (data && data.stores && data.stores[KEY_PROGRESS]) || {};
+    Object.keys(ps).forEach(function (r) {
+      Object.keys(ps[r] || {}).forEach(function (sk) { if (ps[r][sk] && ps[r][sk].done) prog++; });
+    });
+    return { withReadings: Object.keys(serials).length, ticked: prog };
+  }
+  // Take the job's work out of working storage (only after the bin copy is written).
+  function removeJobData(data) {
+    if (!data) return;
+    Object.keys(data.stores || {}).forEach(function (sk) {
+      var all = readJson(sk, {}) || {};
+      Object.keys(data.stores[sk]).forEach(function (r) { delete all[r]; });
+      writeJson(sk, all);
+    });
+    var s = null; try { s = global.localStorage; } catch (e) {}
+    if (s) Object.keys(data.keys || {}).forEach(function (k) { try { s.removeItem(k); } catch (e) {} });
+  }
+  // Put a bin entry's work back. Anything already there for the same unit
+  // (should not happen: the swap bins it first) is kept if it is newer.
+  // → number of items that were already there and kept
+  function putJobData(data) {
+    if (!data) return 0;
+    var kept = 0;
+    Object.keys(data.stores || {}).forEach(function (sk) {
+      var all = readJson(sk, {}) || {};
+      Object.keys(data.stores[sk]).forEach(function (r) {
+        var v = data.stores[sk][r];
+        if (all[r] === undefined) { all[r] = v; return; }
+        if (Array.isArray(v) && Array.isArray(all[r])) {        // units added on site: add the missing ones
+          var have = {}; all[r].forEach(function (x) { have[(x && x.uid) || JSON.stringify(x)] = true; });
+          v.forEach(function (x) { if (!have[(x && x.uid) || JSON.stringify(x)]) all[r].push(x); else kept++; });
+        } else if (v && typeof v === 'object') {                // per serial: the one already there wins
+          Object.keys(v).forEach(function (sk2) { if (all[r][sk2] === undefined) all[r][sk2] = v[sk2]; else kept++; });
+        }
+      });
+      if (!writeJson(sk, all)) throw new Error('Storage is full — the job\'s ticks could not be put back.');
+    });
+    var s = null; try { s = global.localStorage; } catch (e) {}
+    if (s) Object.keys(data.keys || {}).forEach(function (k) {
+      var now = null; try { now = s.getItem(k); } catch (e) {}
+      if (now !== null) {
+        var a = null, b = null; try { a = JSON.parse(now); b = JSON.parse(data.keys[k]); } catch (e) {}
+        kept++;
+        if (!(a && b && String(b.savedAt || '') > String(a.savedAt || ''))) return;
+      }
+      try { s.setItem(k, data.keys[k]); } catch (e) { throw new Error('Storage is full — saved readings could not be put back.'); }
+    });
+    return kept;
+  }
+
   function binStore() {
     var b = readJson(KEY_BIN, []);
     return Array.isArray(b) ? b : [];
@@ -1456,50 +1563,79 @@
     // the open job's freshest copy is the current one
     var job = (cur && jobKey(cur.callNumber) === key) ? cur : all[key];
     if (!job) return null;
+    var data = collectJobData(job.callNumber || key);
     var entry = {
       id: 'bin' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
-      key: key, deletedAt: new Date().toISOString(), job: job
+      key: key, deletedAt: new Date().toISOString(), job: job, data: data
     };
     var bin = binStore();
     bin.unshift(entry);
-    // never take a job off the list unless its copy in the bin was written
+    // never take a job (or its work) off the list unless its copy in the bin was written
     if (!writeJson(KEY_BIN, bin)) throw new Error('Storage is full — the job could not be moved to the bin, so it was left on the list.');
+    removeJobData(data);
     delete all[key];
     writeJson(KEY_JOBS, all);
     if (activeKey() === key || (cur && jobKey(cur.callNumber) === key)) {
       try { global.localStorage.setItem(KEY_ACTIVE, ''); } catch (e) {}
       writeJson(KEY_CURRENT, null);
+      writeJson(KEY_HANDOFF, null);
+      try { setLink(null); } catch (e) {}
     }
     announce();
     return entry;
   }
   function binnedJobs() {
+    var listed = jobsStore();
     return binStore().map(function (e) {
       var d = new Date(e.deletedAt); d.setDate(d.getDate() + BIN_DAYS);
       var devices = ((e.job && e.job.devices) || []).filter(function (x) { return !x.duplicateMerged; });
+      var c = dataCounts(e.data);
       return {
         id: e.id, key: e.key, deletedAt: e.deletedAt,
         purgeOn: isNaN(d) ? '' : d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'),
         callNumber: (e.job && e.job.callNumber) || '', customer: (e.job && e.job.customer) || '',
         fileName: (e.job && e.job.fileName) || '', units: devices.length,
-        onList: !!jobsStore()[e.key]
+        done: devices.filter(function (x) { return x.done; }).length,
+        withReadings: c.withReadings, hasData: !!e.data,
+        migrateNote: e.migrateNote || '',
+        onList: !!listed[e.key]
       };
     });
   }
-  // → { ok:true, key } or { ok:false, reason:'gone'|'exists' }
-  function restoreJob(id) {
+  // → { ok:true, key, id, swapped? } or { ok:false, reason:'gone'|'exists'|'storage', message? }
+  // opts.swap: the same job number is on the list → that job goes to the bin
+  // first (with its work), then this one comes back. Its certificates are
+  // the page's job (swapped.id is the bin id to file them under).
+  function restoreJob(id, opts) {
     var bin = binStore();
-    var i = -1;
-    bin.forEach(function (e, n) { if (e.id === id) i = n; });
-    if (i < 0) return { ok: false, reason: 'gone' };
-    var e = bin[i], all = jobsStore();
-    if (all[e.key]) return { ok: false, reason: 'exists', key: e.key };
+    var e = null;
+    bin.forEach(function (x) { if (x.id === id) e = x; });
+    if (!e) return { ok: false, reason: 'gone' };
+    var swapped = null;
+    if (jobsStore()[e.key]) {
+      if (!(opts && opts.swap)) return { ok: false, reason: 'exists', key: e.key };
+      try { swapped = binJob(e.key); }
+      catch (err) { return { ok: false, reason: 'storage', message: err && err.message ? err.message : String(err) }; }
+    }
+    try { putJobData(e.data); }
+    catch (err) { return { ok: false, reason: 'storage', message: err && err.message ? err.message : String(err), swapped: swapped }; }
+    var all = jobsStore();
     all[e.key] = e.job;
-    writeJson(KEY_JOBS, all);
-    bin.splice(i, 1);
+    if (!writeJson(KEY_JOBS, all)) return { ok: false, reason: 'storage', message: 'Storage is full — the job could not be put back on the list.', swapped: swapped };
+    bin = binStore().filter(function (x) { return x.id !== id; });
     writeJson(KEY_BIN, bin);
     announce();
-    return { ok: true, key: e.key, id: e.id };
+    return { ok: true, key: e.key, id: e.id, swapped: swapped };
+  }
+  // v1.642: "Delete for good" — one bin entry now (the page asks for the PIN).
+  // Its certificates stay in the certificate bin (their own 30 days).
+  function purgeBinEntry(id) {
+    var bin = binStore();
+    var keep = bin.filter(function (e) { return e.id !== id; });
+    if (keep.length === bin.length) return false;
+    writeJson(KEY_BIN, keep);
+    announce();
+    return true;
   }
   // Remove bin entries older than BIN_DAYS. Returns how many went.
   function purgeBin() {
@@ -1508,6 +1644,35 @@
     var keep = bin.filter(function (e) { return String(e.deletedAt || '') >= cut; });
     if (keep.length !== bin.length) writeJson(KEY_BIN, keep);
     return bin.length - keep.length;
+  }
+  // v1.642: bin entries made before 1.642 left their work in storage. Give it
+  // to them now, where that is certain:
+  //  • job number NOT on the list → the newest bin entry for that number takes
+  //    the work (older entries of the same number get none — note 'older');
+  //  • job number on the list again → the work stays with the job on the list
+  //    (it may already be built on it) — note 'shared', nothing moved.
+  // Entries that already have data are never touched, so this can run on every load.
+  function migrateBin() {
+    var bin = binStore();
+    var todo = bin.filter(function (e) { return !e.data; });
+    if (!todo.length) return { moved: 0, shared: 0, older: 0 };
+    var listed = jobsStore(), out = { moved: 0, shared: 0, older: 0 }, taken = {};
+    // newest first (the bin is kept newest first, but do not rely on it)
+    todo.sort(function (a, b) { return String(a.deletedAt || '') < String(b.deletedAt || '') ? 1 : -1; });
+    var moves = [];
+    todo.forEach(function (e) {
+      var ref = (e.job && e.job.callNumber) || e.key;
+      if (listed[e.key]) { e.data = { stores: {}, keys: {} }; e.migrateNote = 'shared'; out.shared++; return; }
+      if (taken[refKey(ref)]) { e.data = { stores: {}, keys: {} }; e.migrateNote = 'older'; out.older++; return; }
+      taken[refKey(ref)] = true;
+      e.data = collectJobData(ref);
+      moves.push(e.data);
+      out.moved++;
+    });
+    if (!writeJson(KEY_BIN, bin)) return { moved: 0, shared: 0, older: 0, error: 'storage' };
+    moves.forEach(removeJobData);
+    if (out.moved) announce();
+    return out;
   }
 
   // A job created by hand, for work with no jobsheet.
@@ -2314,6 +2479,9 @@
     binnedJobs: binnedJobs,
     restoreJob: restoreJob,
     purgeBin: purgeBin,
+    purgeBinEntry: purgeBinEntry,   // v1.642
+    migrateBin: migrateBin,         // v1.642
+    collectJobData: collectJobData, // v1.642 (tests / checks)
     jobKey: jobKey,
     updateDevice: updateDevice,
     markDone: markDone,
@@ -2373,4 +2541,9 @@
     onChange: onChange,
     ddmmyyyyToIso: ddmmyyyyToIso
   };
+  // v1.642: old bin entries take their work with them (once; safe to repeat).
+  try {
+    var mig = migrateBin();
+    if (mig && (mig.moved || mig.shared || mig.older)) console.info('LabCal bin migration:', JSON.stringify(mig));
+  } catch (e) { console.warn('LabCal bin migration not done:', e); }
 })(typeof window !== 'undefined' ? window : this);

@@ -1,4 +1,4 @@
-(window.LabCalBuild = window.LabCalBuild || {})['labcal_certlock.js'] = 'v1.641';  // file version — see labcal_build.js
+(window.LabCalBuild = window.LabCalBuild || {})['labcal_certlock.js'] = 'v1.642';  // file version — see labcal_build.js
 /* ---------------------------------------------------------------------
    LabCal — a certified unit's worksheet is LOCKED (v1.638)
    ---------------------------------------------------------------------

@@ -3,6 +3,28 @@
 Load each offsets file **once, on the home page**. Every worksheet then picks it
 up automatically until the reference thermometer's certificate expires.
 
+## v1.642 — Bin takes the job's work with it; Swap; Delete for good; certificate numbers never come back
+
+Radek (21 Nov 2026), Leighton Hospital ENQ146211: readings saved, job deleted, the same
+job sheet loaded again — the "fresh" job came back done, locked and with the old readings
+(they stayed in storage under ENQ + serial; only the job entry went to the bin).
+
+- **Delete job** now moves the job's saved worksheets, ticks, added units, corrections and
+  Live probes times INTO the bin entry. The same ENQ loaded again starts empty. The job
+  page then shows "An earlier copy of job … is in the bin" with **Swap with the copy in the bin**.
+- **Restore** while the same ENQ is on the list = **Swap** (PIN): the job on the list goes to
+  the bin with its own readings and certificates, the chosen copy comes back. Can be
+  swapped back. Nothing is overwritten.
+- **Delete for good** (PIN) on a job in the bin. Its certificates stay in the certificate
+  bin for their own 30 days.
+- **Certificate numbers**: an issued certificate never gives its number back — in the bin or
+  after the bin is emptied (replaces the 1.612 rule). The bin's text "number stays reserved"
+  is now true.
+- Bin entries made before 1.642 are fixed once on load: a job not on the list takes its
+  leftover readings/ticks; a job number already on the list again keeps them on the list
+  (marked in the bin). Safe to run again.
+- No calculation, tolerance, rounding, PDF layout or number format change.
+
 ## v1.641 — Job sheet goes on the day picked on the calendar (with a warning)
 
 Radek (21 Nov 2026): Calendar → pick a day → Load jobsheet used to put the job on today

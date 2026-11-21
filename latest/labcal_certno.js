@@ -1,4 +1,4 @@
-(window.LabCalBuild = window.LabCalBuild || {})['labcal_certno.js'] = 'v1.641';  // file version — see labcal_build.js
+(window.LabCalBuild = window.LabCalBuild || {})['labcal_certno.js'] = 'v1.642';  // file version — see labcal_build.js
 /* ---------------------------------------------------------------------
    LabCal — certificate numbers given automatically (v1.612)
    ---------------------------------------------------------------------
@@ -14,8 +14,9 @@
      without a code cannot make a calibration certificate.
    • The next number is the LOWEST number of this job (this engineer) not
      held by another unit, worked out from the certificates on this iPad and
-     the certificate register — not from a separate counter. A deleted
-     certificate (bin) gives its number back.
+     the certificate register — not from a separate counter. v1.642: a
+     deleted certificate (bin, or bin emptied) keeps its number — an issued
+     number is never given to another unit.
    • A revised certificate for the same unit keeps the unit's number.
    • Verification: no number — the certificate says "Verification".
    Used by SMD, NSMD, IBB, SNMD, 19/24 and Barkey. Cloud Temp and
@@ -80,13 +81,15 @@
         return !!sk && key(r.serial) === sk;
       }
       function regKeyOf(r) { return String(r.savedAt || '') + '|' + String(r.filename || ''); }
-      var deletedKeys = {}, liveKeys = {};
-      recs.forEach(function (r) { (r.deletedAt ? deletedKeys : liveKeys)[regKeyOf(r)] = true; });
-      // every number still held: live certificates + register lines of
-      // certificates no longer on the iPad (not deleted ones)
-      var held = recs.filter(function (r) { return !r.deletedAt; }).concat(lines.filter(function (e) {
+      var onIpad = {};
+      recs.forEach(function (r) { onIpad[regKeyOf(r)] = true; });
+      // every number ever given: certificates on the iPad (also those in the
+      // bin) + register lines of certificates no longer on the iPad.
+      // v1.642 (Radek): an issued certificate never gives its number back —
+      // a deleted one keeps it too (was: deleted = free again, v1.612).
+      var held = recs.concat(lines.filter(function (e) {
         var k = e.key || regKeyOf(e);
-        return !e.deletedAt && !deletedKeys[k] && !liveKeys[k];
+        return !onIpad[k];
       }));
       var takenByOther = {};
       held.forEach(function (r) { var n = seqOf(r.certRef, prefix); if (n && !sameUnit(r)) takenByOther[n] = true; });

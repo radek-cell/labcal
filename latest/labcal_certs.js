@@ -1,4 +1,4 @@
-(window.LabCalBuild = window.LabCalBuild || {})['labcal_certs.js'] = 'v1.641';  // file version — see labcal_build.js
+(window.LabCalBuild = window.LabCalBuild || {})['labcal_certs.js'] = 'v1.642';  // file version — see labcal_build.js
 /* ---------------------------------------------------------------------
    LabCal — the day's certificates
    ---------------------------------------------------------------------
@@ -264,7 +264,7 @@
       // the serial was corrected has a different serial from the one it replaces.
       var earlier = list.filter(function (r) {
         return r.id !== exceptId && !r.superseded &&
-          (sameUnit(r, rec) || (rec.unitUid && r.unitUid && r.unitUid === rec.unitUid && !isDeleted(r) &&
+          ((sameUnit(r, rec) && !isDeleted(r)) || (rec.unitUid && r.unitUid && r.unitUid === rec.unitUid && !isDeleted(r) &&
             (r.jobRef || '').toUpperCase() === (rec.jobRef || '').toUpperCase() && String(r.savedAt || '') <= String(rec.savedAt || '')));
       });
       if (!earlier.length) return;
@@ -354,8 +354,8 @@
     }).then(function (n) {
       var c = n.reduce(function (a, b) { return a + b; }, 0);
       if (c) announce();
-      // v1.612: the register line says "deleted" too, so the certificate
-      // number is free again even after the bin is emptied.
+      // v1.612: the register line says "deleted" too. v1.642: the number
+      // stays taken all the same (numbering reads deleted lines as held).
       binned.forEach(function (r) { register(r); });
       return c;
     });
@@ -941,12 +941,11 @@
     // Same test as LabCalVectorPdf.isVerificationRef: digits present, all 0.
     if (/^0+$/.test(want.replace(/\D/g, ''))) return Promise.resolve([]);
     var serial = normRef(unit.serial);
-    // v1.612: an automatic number (RZ145551-001) of a DELETED certificate is
-    // free again — it is not a clash. Older typed numbers stay blocked as before.
-    var autoNo = /^[A-Z][A-Z0-9]*\d-\d{3,}$/.test(String(certRef || '').toUpperCase().replace(/\s+/g, ''));
+    // v1.642 (Radek, 21 Nov 2026): an issued certificate NEVER gives its
+    // number back — also when it is in the bin or the bin was emptied
+    // (replaces the v1.612 rule "a deleted automatic number is free again").
     var other = function (r) {
       if (normRef(r.certRef) !== want) return false;
-      if (autoNo && r.deletedAt) return false;
       if (unit.unitUid && r.unitUid) return r.unitUid !== unit.unitUid;
       return normRef(r.serial) !== serial;
     };
