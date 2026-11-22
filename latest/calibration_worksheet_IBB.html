@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta name="labcal-build" content="v1.634">
+<meta name="labcal-build" content="v1.644">
 <script src="labcal_build.js"></script>
 <script src="labcal_errlog.js"></script>
 <script src="labcal_shell.js"></script>  <!-- v1.619: side menu -->
@@ -18,6 +18,7 @@
 <script src="labcal_offsets.js"></script>
 <script src="labcal_tablock.js"></script>
 <script src="labcal_nav.js"></script>
+<script src="labcal_certlock.js"></script>  <!-- v1.638: certified unit = locked worksheet -->
 <script src="labcal_jobsheet.js"></script>
 <script src="labcal_testmode.js"></script>
 <script src="labcal_save.js"></script>
@@ -153,7 +154,7 @@
 </div>
 <div class="page" id="page">
   <div class="header">
-    <div class="title"><span id="titleText">Engineer Calibration Worksheet</span><div class="subtitle">IBB / Blood Bank <span class="req">*</span>: <select id="deviceType" style="font-size:11px;border:0;border-bottom:1px dotted #333;background:transparent;padding:1px 2px;font-weight:600;color:#555"><option value="">-- select --</option><option value="Plasma Freezer">Plasma Freezer</option><option value="Blood Bank">Blood Bank</option><option value="Platelet Incubator">Platelet Incubator</option></select></div></div>
+    <div class="title"><span id="titleText">Engineer Calibration Worksheet</span><div class="subtitle">IBB / Device <span class="req">*</span>: <select id="deviceType" style="font-size:11px;border:0;border-bottom:1px dotted #333;background:transparent;padding:1px 2px;font-weight:600;color:#555"><option value="">-- select --</option><option value="Blood Bank">Blood Bank</option><option value="Plasma Freezer">Plasma Freezer</option><option value="Platelet Incubator">Platelet Incubator</option></select></div></div>
     <div class="brand"><div class="logo">❄ LABCOLD</div><div class="no">No <span class="req">*</span>: <input id="certNo" value="" readonly tabindex="-1" placeholder="" style="width:215px;border:0;border-bottom:1px solid #333;font-size:18px;text-align:center;letter-spacing:1px"></div></div>
   </div>
   <!-- v1.612: Calibration / Verification — chosen first; the number is given at Generate PDF (labcal_certno.js) -->
@@ -168,11 +169,9 @@
     <div class="field"><label>Serial No <span class="req">*</span>:</label><input id="serial"></div>
     <div class="field"><label>Manufacturer <span class="req">*</span>:</label>
       <span style="display:flex;gap:6px;align-items:center;width:100%">
-        <input class="input calc" readonly tabindex="-1" value="Labcold" title="This form is for Labcold units only" style="flex:1;min-width:0;text-align:left">
-        <select id="manufacturer" style="display:none" disabled>
-          <option value="Labcold" selected>Labcold</option>
-        </select>
-        <input id="manufacturerOther" placeholder="Enter manufacturer" style="flex:1;min-width:0;display:none">
+        <!-- v1.640: IBB is always Labcold — one plain read-only field, same font as the others; value pinned to "Labcold" (see pinManufacturer) -->
+        <input id="manufacturer" value="Labcold" readonly tabindex="-1" title="IBB units are always Labcold" style="flex:1;min-width:0">
+        <input id="manufacturerOther" type="hidden" value="">
       </span>
     </div>
     <div class="field"><label>Load <span class="req">*</span>:</label><select id="load"><option value="">-- select --</option><option>Empty</option><option>1/4</option><option>1/2</option><option>3/4</option><option>Full</option></select></div>
@@ -2031,9 +2030,6 @@ function collectRequiredIds(){
     }
     if(!isChartLoadAbsent()) ids.push('al_cycle_chartload_max','al_cycle_chartload_min','al_chartload_display');
   }
-  if(document.getElementById('manufacturer')?.value==='Other'){
-    ids.push('manufacturerOther');
-  }
   // v1.551: AF timing always; AL Adjusted at / Cycle start / Cycle end when As Left must be completed.
   if(window.LabCalTiming) ids.push(...LabCalTiming.requiredIds(adjustmentNeeded));
   return ids;
@@ -2445,6 +2441,7 @@ async function generateVectorPDF(){
     await fileCertificateForToday(blob, filename);
     markJobsheetDone();
     if(window.LabCalSave){ await LabCalSave.deliver(blob, filename); }
+    if(window.LabCalCertLock) LabCalCertLock.afterCertificate();   // v1.638: worksheet locked, certificate shown
     else { downloadBlob(blob,filename); }
     return true;
   }catch(err){
@@ -2529,6 +2526,7 @@ async function generatePDF(){
     await fileCertificateForToday(blob, filename);
     markJobsheetDone();
     if(window.LabCalSave){ await LabCalSave.deliver(blob, filename); }
+    if(window.LabCalCertLock) LabCalCertLock.afterCertificate();   // v1.638: worksheet locked, certificate shown
     else { downloadBlob(blob,filename); }
   }catch(err){
     alert('PDF generation failed: '+(err && err.message ? err.message : err));
@@ -2720,7 +2718,7 @@ function applyImportedFields(fieldMap){
     setValById('model', fieldMap['Model']);
     setValById('serial', fieldMap['Serial No']);
     setManufacturerFromImport(fieldMap['Manufacturer']);
-    setValById('deviceType', fieldMap['IBB / Blood Bank']);
+    setValById('deviceType', fieldMap['IBB / Device']!=null ? fieldMap['IBB / Device'] : fieldMap['IBB / Blood Bank']);   // v1.640: older Excel files say 'IBB / Blood Bank'
     setValById('load', fieldMap['Load']);
     setValById('calSystem', fieldMap['Calibration System']);
     // This worksheet is now locked to Standard Air/Load (no dropdown is shown
@@ -2844,31 +2842,26 @@ document.getElementById('deviceType')?.addEventListener('change', ()=>checkSetpo
 document.getElementById('initialSetpoint')?.addEventListener('input', ()=>checkSetpointRange(false));
 document.getElementById('al_adj_made')?.addEventListener('input', function(){ fitInputText(this); });
 document.getElementById('finalSetpoint')?.addEventListener('input', ()=>checkSetpointRange(false));
-function manufacturerValue(){
-  const sel=document.getElementById('manufacturer');
-  if(!sel) return '';
-  if(sel.value==='Other') return (document.getElementById('manufacturerOther')?.value||'').trim();
-  return sel.value;
-}
-document.getElementById('manufacturer')?.addEventListener('change', function(){
-  const other=document.getElementById('manufacturerOther');
-  if(!other) return;
-  if(this.value==='Other'){ other.style.display=''; other.focus(); }
-  else { other.style.display='none'; other.value=''; other.classList.remove('invalid','valid'); }
-});
+// v1.640: IBB units are always Labcold. Before, #manufacturer was a hidden
+// one-option list; a restore (Reopen / saved readings / Excel import) that
+// wrote "" or "Other" into it left it empty, and Generate PDF then demanded
+// "Manufacturer" although "Labcold" was shown. The field is now pinned: any
+// write (applyForm, import, Start New) keeps it "Labcold".
+(function pinManufacturer(){
+  const el=document.getElementById('manufacturer');
+  if(!el) return;
+  const d=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value');
+  try{
+    Object.defineProperty(el,'value',{configurable:true,
+      get:function(){ return 'Labcold'; },
+      set:function(){ d.set.call(el,'Labcold'); }});
+  }catch(e){}
+  d.set.call(el,'Labcold');
+  el.setAttribute('value','Labcold');
+})();
+function manufacturerValue(){ return 'Labcold'; }
 function setManufacturerFromImport(value){
-  const sel=document.getElementById('manufacturer');
-  const other=document.getElementById('manufacturerOther');
-  if(!sel || !value) return;
-  const trimmed=String(value).trim();
-  const knownOption=Array.from(sel.options).find(o=>o.value && o.value!=='Other' && o.value.toLowerCase()===trimmed.toLowerCase());
-  if(knownOption){
-    sel.value=knownOption.value;
-    if(other){ other.style.display='none'; other.value=''; }
-  } else {
-    sel.value='Other';
-    if(other){ other.style.display=''; other.value=trimmed; }
-  }
+  const el=document.getElementById('manufacturer'); if(el) el.value='Labcold';
 }
 // Air, Load and Chart Air/Chart Load each keep their own readings — see
 // applyColumnAvailability and mirrorChartAir/mirrorChartLoad above. The

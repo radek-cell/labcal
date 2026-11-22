@@ -1,4 +1,4 @@
-(window.LabCalBuild = window.LabCalBuild || {})['labcal_pin.js'] = 'v1.634';  // file version — see labcal_build.js
+(window.LabCalBuild = window.LabCalBuild || {})['labcal_pin.js'] = 'v1.644';  // file version — see labcal_build.js
 /* ---------------------------------------------------------------------
    LabCal — 4-digit PIN pad (v1.594)
    ---------------------------------------------------------------------
@@ -23,12 +23,25 @@
      shown anywhere.
    To change the PIN: put the new fingerprint in PIN_SHA256 below
    (sha256 of SALT + the 4 digits) and release a new version.
+
+   v1.637 (Radek): OFFICE PASSWORD. ask({ allowPassword: true }) adds an
+   "Office password" button under the keypad: it swaps the keypad for one
+   password box (the office staff type the shared office password, the
+   engineers keep using the PIN). Used by Tools (labcal_toolsgate.js) only —
+   Settings, Delete job and Re-issue stay PIN-only. The password is not in
+   this file either: only sha256(PW_SALT + password, UTF-8) in PW_SHA256.
+   Wrong passwords count towards the same 5-tries / 30 s pause as the PIN.
+   ask() still resolves true / false; LabCalPin.lastMethod() says 'pin' or
+   'password' after a true.
    --------------------------------------------------------------------- */
 (function (global) {
   'use strict';
 
   var SALT = 'LabCal-pin-v1:7f3a9c21e4b8';
   var PIN_SHA256 = 'ebfa8f7ce91a667e5c8f89f67171644eb91581304fef753eb52c8a88bdcdd3fc';
+  var PW_SALT = 'LabCal-office-pw-v1:c4e19b07a6d3';
+  var PW_SHA256 = 'a19d6ca9d53d32bc57c677d7fb13b882985d4d75652ccbb1e0489df0e15d188a';
+  var lastMethod = '';
   var MAX_TRIES = 5;
   var WAIT_MS = 30000;
   var LOCK_KEY = 'labcal.pin.wait';     // { fails, until } — no digits kept
@@ -73,6 +86,9 @@
     return H.map(function (x) { return ('00000000' + (x >>> 0).toString(16)).slice(-8); }).join('');
   }
   function isRight(digits) { return /^\d{4}$/.test(digits) && sha256Hex(SALT + digits) === PIN_SHA256; }
+  // v1.637: office password — UTF-8 bytes, so £ or accented letters hash the same everywhere
+  function utf8(s) { try { return unescape(encodeURIComponent(String(s))); } catch (e) { return String(s); } }
+  function isRightPassword(pw) { return !!pw && sha256Hex(PW_SALT + utf8(pw)) === PW_SHA256; }
 
   // ---- wrong-PIN pause ---------------------------------------------------
   function readWait() {
@@ -105,6 +121,15 @@
       '#lcPinPanel .pinPad button:disabled{opacity:.35;cursor:default}' +
       '#lcPinPanel .pinBar{margin-top:10px;display:flex}' +
       '#lcPinPanel .pinBar button{flex:1;min-height:48px;font-size:16px;background:#f0f0f0;border-color:#999}' +
+      '#lcPinPanel .pinPw{display:none;margin:4px 0 6px}' +
+      '#lcPinPanel .pinPw input{width:100%;box-sizing:border-box;min-height:48px;font-size:18px;padding:8px 12px;border:2px solid #bbb;border-radius:10px;font-family:inherit}' +
+      '#lcPinPanel .pinPw input:focus{outline:none;border-color:#1a5fb4;background:#eef4ff}' +
+      '#lcPinPanel .pinPw .pinPwOk{margin-top:8px;width:100%;min-height:52px;font-size:18px;font-weight:700;border-radius:10px;border:1px solid #1a5fb4;background:#1a5fb4;color:#fff;cursor:pointer;font-family:inherit}' +
+      '#lcPinPanel .pinPw .pinPwOk:disabled{opacity:.35;cursor:default}' +
+      '#lcPinPanel.pw .pinPw{display:block}' +
+      '#lcPinPanel.pw .pinDots,#lcPinPanel.pw .pinPad{display:none}' +
+      '#lcPinPanel .pinBar{gap:8px}' +
+      '#lcPinPanel .pinBar button.pinSwap{font-size:15px;color:#1a5fb4;font-weight:600}' +
       '#lcPinPanel.shake{animation:lcPinShake .3s}' +
       '@keyframes lcPinShake{0%,100%{transform:translateX(0)}25%{transform:translateX(-8px)}75%{transform:translateX(8px)}}';
     d.head.appendChild(st);
@@ -137,18 +162,41 @@
         '<div class="pinDots" aria-live="polite"><span></span><span></span><span></span><span></span></div>' +
         '<div class="pinErr" role="alert"></div>' +
         '<div class="pinPad">' + keys + '</div>' +
-        '<div class="pinBar"><button type="button" data-k="cancel">Cancel</button></div></div>';
+        (opts.allowPassword ?
+          '<form class="pinPw" autocomplete="off" onsubmit="return false">' +
+          '<input type="password" class="pinPwIn" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" aria-label="Office password" placeholder="Office password">' +
+          '<button type="button" class="pinPwOk" data-k="pwok" disabled>OK</button></form>' : '') +
+        '<div class="pinBar">' +
+        (opts.allowPassword ? '<button type="button" class="pinSwap" data-k="swap">Office password</button>' : '') +
+        '<button type="button" data-k="cancel">Cancel</button></div></div>';
       d.body.appendChild(ov);
       var panel = ov.querySelector('#lcPinPanel');
       var dots = ov.querySelectorAll('.pinDots span');
       var err = ov.querySelector('.pinErr');
       var ok = ov.querySelector('[data-k="ok"]');
+      var pwIn = ov.querySelector('.pinPwIn');
+      var pwOk = ov.querySelector('[data-k="pwok"]');
+      var swap = ov.querySelector('[data-k="swap"]');
+      var pwMode = false;
+      lastMethod = '';
+      function setPwMode(on) {
+        pwMode = !!on;
+        panel.classList.toggle('pw', pwMode);
+        if (swap) swap.textContent = pwMode ? 'Use PIN' : 'Office password';
+        digits = '';
+        if (pwIn) pwIn.value = '';
+        if (!waitLeft()) err.textContent = '';
+        draw();
+        if (pwMode && pwIn) { try { pwIn.focus(); } catch (e) {} }
+        else { try { if (pwIn) pwIn.blur(); } catch (e) {} }
+      }
 
       function waitLeft() { var w = readWait(); return Math.max(0, (w.until || 0) - Date.now()); }
       function draw() {
         for (var i = 0; i < 4; i++) { dots[i].textContent = i < digits.length ? '●' : ''; dots[i].className = i < digits.length ? 'on' : ''; }
         var left = waitLeft();
         ok.disabled = digits.length !== 4 || left > 0;
+        if (pwOk) pwOk.disabled = !(pwIn && pwIn.value) || left > 0;
         if (left > 0) err.textContent = 'Too many wrong PINs — wait ' + Math.ceil(left / 1000) + ' s';
       }
       function tick() {
@@ -161,6 +209,7 @@
       function finish(result) {
         if (done) return;
         done = true; digits = '';
+        if (pwIn) pwIn.value = '';
         if (timer) global.clearTimeout(timer);
         d.removeEventListener('keydown', onKey, true);
         if (ov.parentNode) ov.parentNode.removeChild(ov);
@@ -170,6 +219,9 @@
       function press(k) {
         if (done) return;
         if (k === 'cancel') { finish(false); return; }
+        if (k === 'swap') { setPwMode(!pwMode); return; }
+        if (k === 'pwok') { submitPassword(); return; }
+        if (pwMode) return;
         if (k === 'del') { digits = digits.slice(0, -1); if (!waitLeft()) err.textContent = ''; draw(); return; }
         if (k === 'ok') { submit(); return; }
         if (/^\d$/.test(k) && digits.length < 4) { digits += k; if (!waitLeft()) err.textContent = ''; draw(); }
@@ -178,12 +230,23 @@
         if (digits.length !== 4 || waitLeft() > 0) return;
         var right = isRight(digits);
         digits = '';
-        if (right) { clearWait(); finish(true); return; }
+        if (right) { clearWait(); lastMethod = 'pin'; finish(true); return; }
+        wrong('Wrong PIN — try again');
+      }
+      function submitPassword() {
+        if (!pwIn || !pwIn.value || waitLeft() > 0) return;
+        var right = isRightPassword(pwIn.value);
+        pwIn.value = '';
+        if (right) { clearWait(); lastMethod = 'password'; finish(true); return; }
+        wrong('Wrong password — try again');
+        try { pwIn.focus(); } catch (e) {}
+      }
+      function wrong(msg) {
         var w = readWait();
         w.fails = (w.fails || 0) + 1;
         if (w.fails >= MAX_TRIES) { w.fails = 0; w.until = Date.now() + WAIT_MS; }
         writeWait(w);
-        err.textContent = 'Wrong PIN — try again';
+        err.textContent = msg;
         panel.classList.remove('shake'); void panel.offsetWidth; panel.classList.add('shake');
         draw();
         if (waitLeft() > 0) tick();
@@ -191,6 +254,13 @@
       function onKey(e) {
         if (done) return;
         var k = e.key;
+        if (pwMode) {                     // the password box takes the typing itself
+          if (k === 'Enter') press('pwok');
+          else if (k === 'Escape') press('cancel');
+          else return;
+          e.preventDefault(); e.stopPropagation();
+          return;
+        }
         if (/^\d$/.test(k)) press(k);
         else if (k === 'Backspace' || k === 'Delete') press('del');
         else if (k === 'Enter') press('ok');
@@ -203,6 +273,7 @@
         var b = e.target.closest && e.target.closest('button[data-k]');
         if (b && !b.disabled) press(b.getAttribute('data-k'));
       });
+      if (pwIn) pwIn.addEventListener('input', function () { if (!waitLeft()) err.textContent = ''; draw(); });
       d.addEventListener('keydown', onKey, true);
       current = { ov: ov, finish: finish };
       try { if (d.activeElement && d.activeElement.blur) d.activeElement.blur(); } catch (e) {}   // no iPad keyboard left open
@@ -211,5 +282,5 @@
     });
   }
 
-  global.LabCalPin = { ask: ask, isOpen: function () { return !!current; } };
+  global.LabCalPin = { ask: ask, isOpen: function () { return !!current; }, lastMethod: function () { return lastMethod; } };
 })(typeof window !== 'undefined' ? window : this);

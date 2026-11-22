@@ -1,4 +1,4 @@
-(window.LabCalBuild = window.LabCalBuild || {})['labcal_vector_pdf.js'] = 'v1.634';  // file version — see labcal_build.js
+(window.LabCalBuild = window.LabCalBuild || {})['labcal_vector_pdf.js'] = 'v1.644';  // file version — see labcal_build.js
 /* ---------------------------------------------------------------------
    LabCal — vector (text) certificate generator
    ---------------------------------------------------------------------
@@ -476,6 +476,13 @@
     }
 
     var maxLines = Math.max(0, Math.floor((availH - HEAD_H - PAD_TOP - PAD_BOT) / LINE_H));
+    // v1.644 (Radek): a box that only says "N/A" is always drawn MIN_COMH tall
+    // and its one line sits well inside it. The line count above asks for
+    // HEAD_H + PAD_TOP + LINE_H + PAD_BOT = 12.7 mm, so with 12.0-12.7 mm left
+    // (a full "adjustment required + adjustment made" IBB) the lone "N/A" was
+    // sent to a page 2 of its own. Here availH >= MIN_COMH is already known
+    // (smaller goes to the branch above), so the N/A box fits on page 1.
+    if (naOnly) maxLines = Math.max(maxLines, 1);
     var overflow = comLines.length > maxLines ? comLines : [];
     var shown = overflow.length ? [] : comLines;
     var comH = overflow.length ? 7 : (naOnly ? MIN_COMH : Math.max(MIN_COMH, HEAD_H + PAD_TOP + shown.length * LINE_H + PAD_BOT));
@@ -2177,6 +2184,9 @@
     var HEAD_H = 5.0, LINE_H = 3.3, PAD_TOP = 2.6, PAD_BOT = 1.8, FOOT_H = 4.4, SIG_H = 9.1;
     var availH = (PH - 6 - FOOT_H - SIG_H * 2 - 2.5) - y;
     var maxLines = Math.max(0, Math.floor((availH - HEAD_H - PAD_TOP - PAD_BOT) / LINE_H));
+    // v1.644: same as the other sheets — an "N/A"-only box is 12 mm tall, so
+    // with 12-12.7 mm left it fits on page 1 instead of a page 2 of its own.
+    if (!comments && availH >= 12) maxLines = Math.max(maxLines, 1);
     var overflow = comLines.length > maxLines ? comLines : [];
     var shown = overflow.length ? [] : comLines;
     var comH = overflow.length ? 7 : (comments ? Math.max(12, HEAD_H + PAD_TOP + shown.length * LINE_H + PAD_BOT) : 12);

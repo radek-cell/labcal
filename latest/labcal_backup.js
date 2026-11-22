@@ -1,4 +1,4 @@
-(window.LabCalBuild = window.LabCalBuild || {})['labcal_backup.js'] = 'v1.634';  // file version — see labcal_build.js
+(window.LabCalBuild = window.LabCalBuild || {})['labcal_backup.js'] = 'v1.644';  // file version — see labcal_build.js
 /* ---------------------------------------------------------------------
    LabCal — backup & restore
    ---------------------------------------------------------------------
@@ -127,6 +127,8 @@
             summary: rec.summary || '', summaryTone: rec.summaryTone || ''
           };
           if (rec.deletedAt) { entry.deletedAt = rec.deletedAt; entry.binnedWith = rec.binnedWith || ''; }
+          // v1.643: a voided certificate stays voided after a restore
+          if (rec.voidedAt) { entry.voidedAt = rec.voidedAt; entry.voidReason = rec.voidReason || ''; entry.voidedBy = rec.voidedBy || ''; }
           // Details only. The PDF itself stays out — see the note at the top.
           pack.certificates.push(entry);
         });

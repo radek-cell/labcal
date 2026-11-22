@@ -3,6 +3,145 @@
 Load each offsets file **once, on the home page**. Every worksheet then picks it
 up automatically until the reference thermometer's certificate expires.
 
+## v1.644 — Full IBB certificate with "N/A" comments is one page
+
+Radek (22 Nov 2026, ENQ146211): a full IBB certificate (adjustment required +
+adjustment made) with empty Comments printed a page 2 holding only "N/A".
+12.0–12.7 mm were left for Comments; the empty box is 12 mm, but the line count
+asked for 12.7 mm, so even "N/A" was sent to page 2. Now an "N/A"-only box stays
+on page 1 whenever its 12 mm box fits (all sheets using the shared Comments
+block, and Barkey). A typed comment that does not fit still goes to page 2.
+No calculation, value, wording or layout of anything else changed.
+
+## v1.643 — Void certificate (replaces Delete for an issued certificate)
+
+Radek (21 Nov 2026): an issued certificate is never deleted — it is VOIDED.
+
+- **Void** (unit row, "Other certificates for this job", certificate list, certificates not tied
+  to a job) needs a **reason** — Wrong unit / Wrong serial number / Calibration not done /
+  Duplicate certificate, or Other… with typed text — and then the **PIN**. Cannot be undone.
+- The PDF stays unchanged and is marked VOIDED on screen (who — engineer name from the
+  offsets file —, when, why). View still opens it; Share / Save, Reopen and Copy no. are gone.
+- The number is reserved for ever — also against the same unit. The unit goes back to
+  **to do**: not done, not locked, no valid certificate. Its saved readings stay. Its next
+  certificate gets a **new number** (rev 1). Earlier revisions of the voided certificate never
+  count as current again.
+- **Job pack**: voided certificates go in `voided/` (file names start VOIDED_), listed in the
+  sealed checklist (`voided` + on their unit) with status, reason, who and when — for LabCal
+  Office. Never in `_ALL_certificates.pdf` / Merge job & share. A job with only voided
+  certificates still makes a pack. Save job pack review lists them.
+- **Check certificates**: a PDF identical to a voided one shows **VOIDED** — do not send.
+- **Clear day** is removed (an issued certificate is only ever voided, one at a time).
+  Delete stays for whole jobs (they go to the bin with their certificates, as in 1.642).
+- Backups keep the void. Register and worksheet history show VOIDED.
+- No calculation, tolerance, rounding, PDF layout or number format change.
+
+## v1.642 — Bin takes the job's work with it; Swap; Delete for good; certificate numbers never come back
+
+Radek (21 Nov 2026), Leighton Hospital ENQ146211: readings saved, job deleted, the same
+job sheet loaded again — the "fresh" job came back done, locked and with the old readings
+(they stayed in storage under ENQ + serial; only the job entry went to the bin).
+
+- **Delete job** now moves the job's saved worksheets, ticks, added units, corrections and
+  Live probes times INTO the bin entry. The same ENQ loaded again starts empty. The job
+  page then shows "An earlier copy of job … is in the bin" with **Swap with the copy in the bin**.
+- **Restore** while the same ENQ is on the list = **Swap** (PIN): the job on the list goes to
+  the bin with its own readings and certificates, the chosen copy comes back. Can be
+  swapped back. Nothing is overwritten.
+- **Delete for good** (PIN) on a job in the bin. Its certificates stay in the certificate
+  bin for their own 30 days.
+- **Certificate numbers**: an issued certificate never gives its number back — in the bin or
+  after the bin is emptied (replaces the 1.612 rule). The bin's text "number stays reserved"
+  is now true.
+- Bin entries made before 1.642 are fixed once on load: a job not on the list takes its
+  leftover readings/ticks; a job number already on the list again keeps them on the list
+  (marked in the bin). Safe to run again.
+- No calculation, tolerance, rounding, PDF layout or number format change.
+
+## v1.641 — Job sheet goes on the day picked on the calendar (with a warning)
+
+Radek (21 Nov 2026): Calendar → pick a day → Load jobsheet used to put the job on today
+whatever day was picked. Now the button says "Load jobsheet for <day>" and the job goes on
+that day. When the day is not today a window warns first: Load for <day> / Load for today /
+Cancel. A job on another day is marked plannedFor: the calendar shows it only on that day
+(not also on the day it was loaded), and the job page shows an amber bar "This job is on
+<day> — today is <today>. Certificates made today are dated today" with "Move job to today"
+for a mistake. Loading the sheet again from the job keeps its day. Certificates and the
+worksheet Date are unchanged: always the real day the unit is calibrated. Other loaders
+(job page, home, Today) still load for today. Tests: new suite 77.
+
+## v1.640 — IBB: Manufacturer always Labcold, "IBB / Device", IBB models → IBB worksheet
+
+Radek (21 Nov 2026): on the IBB worksheet Generate PDF said "1 field to complete —
+Manufacturer" although "Labcold" was shown. The real field was a hidden one-option list;
+a reopen / saved readings / unit carried from another worksheet with an empty or "Other"
+manufacturer left it blank. Now #manufacturer is one plain read-only field, same font as
+the other fields, pinned to "Labcold" (nothing can change it). Header label "IBB / Device"
+with Blood Bank, Plasma Freezer, Platelet Incubator in that order (values unchanged, so
+set-point ranges and the certificate line "IBB — <device>" are as before). Routing: every
+model starting "IBB" goes to the IBB worksheet — first rule, before the MD rule, and over
+a remembered choice (IBB-RDBB2320MD used to go to Standard Medical). Excel import still
+reads old files ("IBB / Blood Bank" row). No calculation / tolerance / PDF content change.
+Tests: new suite 76.
+
+## v1.639 — Job sheet: model wrapped onto two lines read as two units
+
+Radek (20 Nov 2026), ENQ146211 (Commissioning, Leighton Hospital). The model
+"IBB-RDBB2320MD" is too long for its column and the PDF wraps it ("IBB-" / "RDBB2320MD"):
+LabCal read two units (IBB- with T000745, and RDBB2320MD with no serial). Now a line with
+only a model (no serial, no dates) under a unit is the rest of that unit's model. Also:
+a department line already ending in "," no longer gets a second comma ("Laboratory,,"),
+and a word the PDF cuts into two touching pieces is joined ("Leighton H ospital" →
+"Leighton Hospital"; ENQ143938's address "Onsit e parking availab le" reads correctly too).
+labcal_jobsheet.js only; every other job sheet in the test folder reads exactly as before.
+
+## v1.638 — Certified unit = locked worksheet; changes only through Re-issue (PIN)
+
+Radek (20 Nov 2026). After Generate PDF the worksheet locks at once: every field
+and button off, Generate PDF / Change worksheet… / Save to job list hidden, a green
+bar "Certificate … made — this worksheet is locked" with View certificate and Back
+to job. When the PDF has gone out (Save / Share / Download, or the save bar closed)
+the certificate is shown in LabCal with Back to job and Next unit. Nothing is
+written to the unit's saved readings while locked.
+A worksheet opened for a certified unit any other way (reload, typed serial, Live
+probes, an old tab) also opens locked. Job list: a certified unit shows
+"Certificate" (opens the PDF) and "Re-issue"; Re-issue asks for the PIN, then opens
+the worksheet ("reopened" tag) and Generate PDF makes the revised certificate (rev 2,
+same number) — locked again. The unit ▾ list on a worksheet opens a certified unit's
+certificate. The Reopen button in the certificate list asks for the PIN too.
+No calculation, certificate number or PDF content changed. New file labcal_certlock.js.
+
+## v1.637 — Tools behind the PIN or the office password
+
+Radek (20 Nov 2026). Tools and every tool it opens — Data Logger Viewer, PDF Merge &
+Reorder, Combine job packs (calibration.html#combine), Stray saved worksheets
+(calibration.html#strays) — ask for the engineers' 4-digit PIN or, after tapping
+"Office password", the shared office password. Also when the page is opened
+directly. The page stays hidden until then; Cancel goes back to Today (the job list
+itself is not locked). Once unlocked, other Tools pages in the same tab don't ask
+again for 30 minutes. Settings, Delete job stay PIN-only. Neither the PIN nor the
+password is written in LabCal — only their fingerprints (labcal_pin.js). New file:
+labcal_toolsgate.js. This is a "need to know the code" step: LabCal is a public web
+app, so it does not stop someone who reads the page's code.
+
+## v1.636 — Live probes compact: 6–7 units on one iPad screen
+
+Radek (20 Nov 2026). Same data and rules, new layout (live_probes.html only):
+one dark "next" bar written out in full (time · serial · model — next step ·
+location · in N min) and small counts instead of four big tiles; each unit is one
+~50 px row — serial + model, then probes · "in HH:MM" · status · location — with
+its bars in the same row (also on an iPad in portrait, where each unit used to be
+a ~280 px card); thin thermometer lines. Tap a unit → its worksheet (› link kept).
+
+## v1.635 — Unit list beside the worksheet: full serial, location, probes and since when
+
+Radek (20 Nov 2026). The unit ▾ panel on a worksheet: each unit now has two lines —
+the FULL serial (it wraps, no "…") with model · worksheet, then location · status.
+Status = the As Found probes in that unit and the time they went in ("1A 6B in at
+08:40"), plus the stage from the timeline, same words as Live probes ("Stabilising ·
+11 min left"). A done unit shows its certificate number. Read only; tapping a unit
+works as before. (labcal_nav.js)
+
 ## v1.634 — Hold − / + for the loading time; no "entered … OK" lines; More… hidden on worksheets
 
 Radek (20 Nov 2026).

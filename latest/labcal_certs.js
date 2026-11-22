@@ -1,4 +1,4 @@
-(window.LabCalBuild = window.LabCalBuild || {})['labcal_certs.js'] = 'v1.634';  // file version — see labcal_build.js
+(window.LabCalBuild = window.LabCalBuild || {})['labcal_certs.js'] = 'v1.644';  // file version — see labcal_build.js
 /* ---------------------------------------------------------------------
    LabCal — the day's certificates
    ---------------------------------------------------------------------
@@ -263,8 +263,8 @@
       // v1.617: also the same unit by its id — a revised certificate made after
       // the serial was corrected has a different serial from the one it replaces.
       var earlier = list.filter(function (r) {
-        return r.id !== exceptId && !r.superseded &&
-          (sameUnit(r, rec) || (rec.unitUid && r.unitUid && r.unitUid === rec.unitUid && !isDeleted(r) &&
+        return r.id !== exceptId && !r.superseded && !isVoided(r) &&
+          ((sameUnit(r, rec) && !isDeleted(r)) || (rec.unitUid && r.unitUid && r.unitUid === rec.unitUid && !isDeleted(r) &&
             (r.jobRef || '').toUpperCase() === (rec.jobRef || '').toUpperCase() && String(r.savedAt || '') <= String(rec.savedAt || '')));
       });
       if (!earlier.length) return;
@@ -295,6 +295,9 @@
       restored: true,
       deletedAt: meta.deletedAt || undefined,
       binnedWith: meta.binnedWith || undefined,
+      voidedAt: meta.voidedAt || undefined,         // v1.643
+      voidReason: meta.voidReason || undefined,
+      voidedBy: meta.voidedBy || undefined,
       blob: blob
     };
     return tx('readwrite')
@@ -354,8 +357,8 @@
     }).then(function (n) {
       var c = n.reduce(function (a, b) { return a + b; }, 0);
       if (c) announce();
-      // v1.612: the register line says "deleted" too, so the certificate
-      // number is free again even after the bin is emptied.
+      // v1.612: the register line says "deleted" too. v1.642: the number
+      // stays taken all the same (numbering reads deleted lines as held).
       binned.forEach(function (r) { register(r); });
       return c;
     });
@@ -421,6 +424,81 @@
     if (isNaN(d)) return '';
     d.setDate(d.getDate() + BIN_DAYS);
     return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  }
+
+  // ---- VOID (v1.643, Radek 21 Nov 2026) -----------------------------------
+  // An issued certificate is never deleted. When it turns out to be wrong
+  // (wrong unit, wrong serial, calibration not really done, a duplicate) it is
+  // VOIDED: PIN + reason on the calibration page. The record and its PDF stay
+  // exactly as they were; only these fields are added:
+  //   voidedAt (ISO time), voidReason (text), voidedBy (engineer name).
+  // A voided certificate:
+  //   • keeps its number for ever (numbering and the clash check read it as
+  //     held — also for the same unit, so a new calibration gets a NEW number)
+  //   • is not current: not in the customer's merged PDF, not "not saved yet",
+  //     never ticks its unit done, never counts as the unit's earlier certificate
+  //   • goes in the job pack for LabCal Office, marked VOIDED with the reason
+  //   • cannot be un-voided (decision 21 Nov 2026)
+  // Certificates made for the same unit BEFORE the voided one (its superseded
+  // revisions) go with it: they are history, never "current" again.
+  function isVoided(r) { return !!(r && r.voidedAt); }
+  function unitKeyOf(r) {
+    if (r.unitUid) return 'u:' + r.unitUid;
+    return 's:' + normRef(r.jobRef) + '|' + normRef(r.serial) + '|' + (r.sheet || '');
+  }
+  // unit key → savedAt of its newest voided certificate (bin left out)
+  function voidCuts(list) {
+    var cut = {};
+    (list || []).forEach(function (r) {
+      if (!isVoided(r) || isDeleted(r)) return;
+      var k = unitKeyOf(r), t = String(r.savedAt || '');
+      if (!cut[k] || t > cut[k]) cut[k] = t;
+      // a certificate with a unit id may have older siblings filed by serial only
+      if (r.unitUid) {
+        var k2 = 's:' + normRef(r.jobRef) + '|' + normRef(r.serial) + '|' + (r.sheet || '');
+        if (!cut[k2] || t > cut[k2]) cut[k2] = t;
+      }
+    });
+    return cut;
+  }
+  // true = voided, or made for its unit at/before a voided certificate
+  function goneByVoid(r, cuts) {
+    if (isVoided(r)) return true;
+    var t = String(r.savedAt || '');
+    var c1 = cuts[unitKeyOf(r)];
+    if (c1 && t <= c1) return true;
+    var c2 = cuts['s:' + normRef(r.jobRef) + '|' + normRef(r.serial) + '|' + (r.sheet || '')];
+    return !!(c2 && t <= c2);
+  }
+  // The certificates that can still count: not in the bin, not voided, not
+  // an earlier revision of a voided one.
+  function liveOnly(list) {
+    var cuts = voidCuts(list);
+    return (list || []).filter(function (r) { return !isDeleted(r) && !goneByVoid(r, cuts); });
+  }
+  // voidCert(id, { reason, by }) → Promise<record>. Throws when it cannot be done.
+  function voidCert(id, opts) {
+    opts = opts || {};
+    var reason = String(opts.reason || '').trim();
+    if (!reason) return Promise.reject(new Error('A reason is needed to void a certificate.'));
+    var rec = null;
+    return tx('readwrite').then(function (os) {
+      var committed = txDone(os);
+      return wrap(os.get(id)).then(function (r) {
+        if (!r) throw new Error('That certificate is no longer stored on this iPad.');
+        if (isDeleted(r)) throw new Error('That certificate is in the bin — restore it first.');
+        if (isVoided(r)) throw new Error('That certificate is already voided.');
+        r.voidedAt = new Date().toISOString();
+        r.voidReason = reason;
+        r.voidedBy = String(opts.by || '').trim();
+        rec = r;
+        return wrap(os.put(r)).then(function () { return committed; });
+      });
+    }).then(function () {
+      announce();
+      // the register line says VOIDED too (kept ~13 months, also after the PDF is pruned)
+      return Promise.race([register(rec), new Promise(function (r) { setTimeout(r, 1500); })]);
+    }).then(function () { return rec; });
   }
 
   // ---- v1.609: file a certificate and do not move on until it is stored --
@@ -640,6 +718,9 @@
     opts = opts || {};
     return Promise.all([listDay(want, jobRef), loadPdfLib()]).then(function (res) {
       var list = res[0], PDFLib = res[1];
+      // v1.643: a voided certificate (and the revisions it replaced) never goes
+      // in the customer's merged PDF
+      list = liveOnly(list);
       if (opts.latestOnly) {
         var newest = {};
         list.forEach(function (c) {
@@ -698,7 +779,7 @@
   // current one for its unit, and has not yet left LabCal. Those are shown on
   // the calibration page and are never pruned automatically.
   function isUnsaved(r) {
-    return !!(r && r.track && !r.deliveredAt && !r.superseded && !r.deletedAt);
+    return !!(r && r.track && !r.deliveredAt && !r.superseded && !r.deletedAt && !r.voidedAt);   // v1.643: voided = not current
   }
 
   function markDelivered(ids, how) {
@@ -845,7 +926,11 @@
       filename: rec.filename || '', rev: Number(rec.rev) || revFromName(rec.filename),
       summary: rec.summary || '',
       engineer: keep.engineer || '',
-      deletedAt: rec.deletedAt || ''   // v1.612: a deleted certificate's number is free again
+      deletedAt: rec.deletedAt || '',  // v1.642: the number stays held all the same
+      // v1.643: voided — the number stays held for ever, the history says why
+      voidedAt: rec.voidedAt || keep.voidedAt || '',
+      voidReason: rec.voidReason || keep.voidReason || '',
+      voidedBy: rec.voidedBy || keep.voidedBy || ''
     };
   }
   // Add (or refresh) the register line for one certificate record.
@@ -941,12 +1026,13 @@
     // Same test as LabCalVectorPdf.isVerificationRef: digits present, all 0.
     if (/^0+$/.test(want.replace(/\D/g, ''))) return Promise.resolve([]);
     var serial = normRef(unit.serial);
-    // v1.612: an automatic number (RZ145551-001) of a DELETED certificate is
-    // free again — it is not a clash. Older typed numbers stay blocked as before.
-    var autoNo = /^[A-Z][A-Z0-9]*\d-\d{3,}$/.test(String(certRef || '').toUpperCase().replace(/\s+/g, ''));
+    // v1.642 (Radek, 21 Nov 2026): an issued certificate NEVER gives its
+    // number back — also when it is in the bin or the bin was emptied
+    // (replaces the v1.612 rule "a deleted automatic number is free again").
     var other = function (r) {
       if (normRef(r.certRef) !== want) return false;
-      if (autoNo && r.deletedAt) return false;
+      // v1.643: a VOIDED number is never used again — not even for the same unit
+      if (r.voidedAt) return true;
       if (unit.unitUid && r.unitUid) return r.unitUid !== unit.unitUid;
       return normRef(r.serial) !== serial;
     };
@@ -978,6 +1064,7 @@
   function clashText(c) {
     return [c.serial ? 'serial ' + c.serial : 'no serial', c.model, c.site, c.jobRef ? 'job ' + c.jobRef : '', c.day,
             c.deletedAt ? 'DELETED \u2014 in the bin' : '',
+            c.voidedAt ? 'VOIDED' + (c.voidReason ? ' (' + c.voidReason + ')' : '') : '',
             c.fromRegister ? 'from the certificate register (PDF no longer on this iPad)' : '']
       .filter(Boolean).join(' \u00b7 ');
   }
@@ -1078,6 +1165,10 @@
     KEEP_DAYS: KEEP_DAYS,
     BIN_DAYS: BIN_DAYS,
     isDeleted: isDeleted,
+    isVoided: isVoided,               // v1.643
+    voidCert: voidCert,
+    liveOnly: liveOnly,
+    VOID_REASONS: ['Wrong unit', 'Wrong serial number', 'Calibration not done', 'Duplicate certificate'],
     trash: trash,
     untrash: untrash,
     untrashWith: untrashWith,

@@ -1,4 +1,4 @@
-(window.LabCalBuild = window.LabCalBuild || {})['labcal_certno.js'] = 'v1.634';  // file version — see labcal_build.js
+(window.LabCalBuild = window.LabCalBuild || {})['labcal_certno.js'] = 'v1.644';  // file version — see labcal_build.js
 /* ---------------------------------------------------------------------
    LabCal — certificate numbers given automatically (v1.612)
    ---------------------------------------------------------------------
@@ -14,9 +14,13 @@
      without a code cannot make a calibration certificate.
    • The next number is the LOWEST number of this job (this engineer) not
      held by another unit, worked out from the certificates on this iPad and
-     the certificate register — not from a separate counter. A deleted
-     certificate (bin) gives its number back.
+     the certificate register — not from a separate counter. v1.642: a
+     deleted certificate (bin, or bin emptied) keeps its number — an issued
+     number is never given to another unit.
    • A revised certificate for the same unit keeps the unit's number.
+   • v1.643: a VOIDED number is held for ever — also against its own unit.
+     After a void the unit's next calibration gets a NEW number (its
+     certificates up to the void are not "earlier certificates" any more).
    • Verification: no number — the certificate says "Verification".
    Used by SMD, NSMD, IBB, SNMD, 19/24 and Barkey. Cloud Temp and
    Monitoring Systems keep their own numbering.
@@ -80,20 +84,30 @@
         return !!sk && key(r.serial) === sk;
       }
       function regKeyOf(r) { return String(r.savedAt || '') + '|' + String(r.filename || ''); }
-      var deletedKeys = {}, liveKeys = {};
-      recs.forEach(function (r) { (r.deletedAt ? deletedKeys : liveKeys)[regKeyOf(r)] = true; });
-      // every number still held: live certificates + register lines of
-      // certificates no longer on the iPad (not deleted ones)
-      var held = recs.filter(function (r) { return !r.deletedAt; }).concat(lines.filter(function (e) {
+      var onIpad = {};
+      recs.forEach(function (r) { onIpad[regKeyOf(r)] = true; });
+      // every number ever given: certificates on the iPad (also those in the
+      // bin) + register lines of certificates no longer on the iPad.
+      // v1.642 (Radek): an issued certificate never gives its number back —
+      // a deleted one keeps it too (was: deleted = free again, v1.612).
+      var held = recs.concat(lines.filter(function (e) {
         var k = e.key || regKeyOf(e);
-        return !e.deletedAt && !deletedKeys[k] && !liveKeys[k];
+        return !onIpad[k];
       }));
-      var takenByOther = {};
-      held.forEach(function (r) { var n = seqOf(r.certRef, prefix); if (n && !sameUnit(r)) takenByOther[n] = true; });
+      var takenByOther = {}, voidedRef = {}, lastVoid = '';
+      held.forEach(function (r) {
+        var n = seqOf(r.certRef, prefix);
+        // v1.643: a voided number is taken — also when it was this unit's
+        if (n && (!sameUnit(r) || r.voidedAt)) takenByOther[n] = true;
+        if (r.voidedAt) voidedRef[key(r.certRef)] = true;
+        if (r.voidedAt && sameUnit(r) && String(r.savedAt || '') > lastVoid) lastVoid = String(r.savedAt || '');
+      });
 
       // a revision keeps the unit's number (newest earlier certificate of this unit)
+      // v1.643: only certificates made AFTER the unit's last voided one count
       var mine = recs.concat(lines).filter(function (r) {
-        return sameUnit(r) && !isVerificationWord(r.certRef) && /[1-9]/.test(String(r.certRef || ''));
+        return sameUnit(r) && !r.voidedAt && !voidedRef[key(r.certRef)] && String(r.savedAt || '') > lastVoid &&
+          !isVerificationWord(r.certRef) && /[1-9]/.test(String(r.certRef || ''));
       }).sort(function (a, b) { return String(a.savedAt) < String(b.savedAt) ? 1 : -1; });
       for (var i = 0; i < mine.length; i++) {
         var ref = String(mine[i].certRef || '').trim();
