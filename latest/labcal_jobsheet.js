@@ -1,4 +1,4 @@
-(window.LabCalBuild = window.LabCalBuild || {})['labcal_jobsheet.js'] = 'v1.643';  // file version — see labcal_build.js
+(window.LabCalBuild = window.LabCalBuild || {})['labcal_jobsheet.js'] = 'v1.634';  // file version — see labcal_build.js
 /* ---------------------------------------------------------------------
    LabCal — shared jobsheet module
    ---------------------------------------------------------------------
@@ -115,14 +115,6 @@
           prev.w=endOf(next)-prev.x;
           i++;
         }
-        continue;
-      }
-      // v1.639: a word the PDF cut into two touching pieces ("Leighton H" + "ospital",
-      // gap 0) is one word again — only when the second piece starts in lower case
-      if (prev && prev.w && it.w && Math.abs(it.x - endOf(prev)) <= 0.5 &&
-          /[A-Za-z]$/.test(String(prev.str)) && /^[a-z]/.test(String(it.str))) {
-        prev.str = String(prev.str) + String(it.str);
-        prev.w = endOf(it) - prev.x;
         continue;
       }
       out.push(Object.assign({},it));
@@ -371,14 +363,6 @@
           let model=(cols.model||'').trim();
           let serial=(cols.serial||cols.serial2||'').trim();
           if(!model && !serial) break;
-          // v1.639 (ENQ146211): a model too long for its column wraps onto the next
-          // line ("IBB-" / "RDBB2320MD") — that line has only the model, no serial
-          // and no dates: it is the rest of the unit above, not a second unit.
-          if(model && !serial && !(cols.warranty||'').trim() && !(cols.maintenance||'').trim() && devices.length){
-            const last=devices[devices.length-1];
-            last.model=/[-\/]$/.test(last.model) ? last.model+model : (last.model+' '+model).trim();
-            continue;
-          }
           if(!model) model=guessModelFromText(t,[serial]);
           if(!serial) serial=guessModelFromText(t,[model]);
           devices.push({model,serial,location:''});
@@ -481,8 +465,7 @@
         const own=items.filter(it=>it.x<boundaryX-10);
         if(own.length) dlines.push(own.map(it=>it.str).join(' '));
       }
-      // v1.639: a line already ending in "," is not given a second one
-      department=dlines.reduce((acc,l)=>!acc ? l : (/[,;\/-]\s*$/.test(acc) ? acc.replace(/\s+$/,'')+' '+l : acc+', '+l), '');
+      department=dlines.join(', ');
     }
     const addrHeaderIdx=rows.findIndex(r=>leadingWordX(r.items,'address')!=null);
     if(addrHeaderIdx!==-1){
@@ -574,11 +557,6 @@
   // Rules are tried in order and the first hit wins. Anything that matches
   // nothing asks the engineer once, then remembers the answer.
   var RULES = [
-    // v1.640 (Radek): every model starting "IBB" takes the IBB worksheet —
-    // first, so "IBB-RDBB2320MD" no longer falls into the MD (Medical) rule.
-    // Also forced in suggestSheet, so a remembered choice cannot override it.
-    { modelMatch: /^IBB/,                          sheet: 'ibb' },
-
     // Named kit — unambiguous from the description itself.
     { match: /barkey|plasmatherm|plasma\s*therm/i, sheet: 'barkey' },
     { match: /cloud\s*temp|cloudtemp/i,            sheet: 'cloud_temp' },
@@ -742,8 +720,6 @@
   // Returns { sheet, why } — `why` is 'learned', 'rule' or '' (unknown).
   // What you have chosen before beats a built-in rule, so a correction sticks.
   function suggestSheet(device) {
-    // v1.640: IBB models always go to the IBB worksheet, whatever was chosen before.
-    if (/^IBB/.test(normalisedModel(device.model))) return { sheet: 'ibb', why: 'rule' };
     var learned = routeRecord(routes()[modelKey(device.model)]);
     if (learned && SHEETS[learned.sheet]) return { sheet: learned.sheet, why: 'learned' };
     return suggestFromRules(device);
@@ -1043,12 +1019,7 @@
   // back from those.
   function reconcileFromCertificates(jobRef, certificates) {
     var changed = false;
-    // v1.643: a VOIDED certificate (and the revisions it replaced) is not
-    // evidence the unit was done — it must never tick the unit again
-    var C = global.LabCalCerts;
-    var live = (C && C.liveOnly) ? C.liveOnly(certificates || [])
-      : (certificates || []).filter(function (c) { return !c.voidedAt; });
-    live.forEach(function (c) {
+    (certificates || []).forEach(function (c) {
       if ((c.jobRef || '') !== String(jobRef || '')) return;
       if (!c.serial) return;
       var existing = progressFor(jobRef)[serialKey(c.serial)];
@@ -1272,9 +1243,7 @@
     var days = {};
     var add = function (iso) { if (iso) days[String(iso).slice(0, 10)] = true; };
     if (!job) return [];
-    add(job.day);
-    // v1.641: a job loaded for another day is not "worked on" the day it was loaded
-    if (!job.plannedFor) { add(job.openedAt); add(job.loadedAt); }
+    add(job.day); add(job.openedAt); add(job.loadedAt);
     (job.devices || []).forEach(function (d) {
       add(d.doneAt); add(d.notRequiredAt); add(d.editedAt); add(d.addedAt);
     });
@@ -1446,117 +1415,10 @@
 
   // ---- bin (v1.584, Radek) ------------------------------------------------
   // "Delete job" moves the job off the list into the bin, where it stays for
-  // BIN_DAYS and can be restored. Its certificates are moved to the
-  // certificate bin by the page (LabCalCerts.trash with binnedWith = id).
-  //
-  // v1.642 (Radek, 21 Nov 2026): the job's WORK goes into the bin with it.
-  // Until 1.641 only the job's entry moved; its ticks, added units,
-  // corrections and saved readings stayed in storage under the job number +
-  // serial, so loading the same job sheet again (same ENQ, same serials)
-  // picked all of it up again — the "fresh" job came back half done and the
-  // certified units locked. Now binJob() takes that work out of storage and
-  // keeps it in the bin entry (entry.data); restoreJob() puts it back.
-  //  • the same ENQ added again starts with empty worksheets;
-  //  • restoring while the same ENQ is on the list SWAPS them (Radek: option A):
-  //    the job on the list goes to the bin with its own work, nothing is lost,
-  //    and it can be swapped back the same way;
-  //  • "Delete for good" (PIN, on the page) removes one bin entry now.
-  // Old bin entries (made by 1.584–1.641, no entry.data) are fixed once by
-  // migrateBin() — safe to run again, it only touches entries without data.
-  var UNIT_PREFIX = 'labcal.unit.';
-  var LIVE_PREFIXES = ['labcal.live.q.', 'labcal.live.res.', 'labcal.live.plan.'];
-  var JOB_STORES = [KEY_PROGRESS, KEY_EXTRA, KEY_FIXES, KEY_DUPOK];
-  function refKey(v) { return String(v || '').toUpperCase().replace(/[^A-Z0-9]/g, ''); }
-  // which job a storage key belongs to ('' = none)
-  function jobOfStorageKey(k) {
-    if (k.indexOf(UNIT_PREFIX) === 0) {
-      var parts = k.slice(UNIT_PREFIX.length).split('.');   // sheet . job . serial
-      return parts.length >= 3 ? refKey(parts[1]) : '';
-    }
-    for (var i = 0; i < LIVE_PREFIXES.length; i++) {
-      if (k.indexOf(LIVE_PREFIXES[i]) === 0) return refKey(k.slice(LIVE_PREFIXES[i].length).split('|')[0]);
-    }
-    return '';
-  }
-  // Everything in working storage that belongs to job `ref`.
-  // → { stores: { <storeKey>: { <jobRef as stored>: value } }, keys: { <storage key>: raw text } }
-  function collectJobData(ref) {
-    var want = refKey(ref), out = { stores: {}, keys: {} };
-    if (!want) return out;
-    JOB_STORES.forEach(function (sk) {
-      var all = readJson(sk, {}) || {};
-      Object.keys(all).forEach(function (r) {
-        if (refKey(r) !== want) return;
-        (out.stores[sk] = out.stores[sk] || {})[r] = all[r];
-      });
-    });
-    var s = null; try { s = global.localStorage; } catch (e) {}
-    if (s) {
-      for (var i = 0; i < s.length; i++) {
-        var k = s.key(i);
-        if (k && jobOfStorageKey(k) === want) { try { out.keys[k] = s.getItem(k); } catch (e) {} }
-      }
-    }
-    return out;
-  }
-  function dataCounts(data) {
-    var serials = {};
-    Object.keys((data && data.keys) || {}).forEach(function (k) {
-      if (k.indexOf(UNIT_PREFIX) !== 0) return;
-      var parts = k.slice(UNIT_PREFIX.length).split('.');
-      if (parts[2]) serials[refKey(parts[2])] = true;
-    });
-    var prog = 0;
-    var ps = (data && data.stores && data.stores[KEY_PROGRESS]) || {};
-    Object.keys(ps).forEach(function (r) {
-      Object.keys(ps[r] || {}).forEach(function (sk) { if (ps[r][sk] && ps[r][sk].done) prog++; });
-    });
-    return { withReadings: Object.keys(serials).length, ticked: prog };
-  }
-  // Take the job's work out of working storage (only after the bin copy is written).
-  function removeJobData(data) {
-    if (!data) return;
-    Object.keys(data.stores || {}).forEach(function (sk) {
-      var all = readJson(sk, {}) || {};
-      Object.keys(data.stores[sk]).forEach(function (r) { delete all[r]; });
-      writeJson(sk, all);
-    });
-    var s = null; try { s = global.localStorage; } catch (e) {}
-    if (s) Object.keys(data.keys || {}).forEach(function (k) { try { s.removeItem(k); } catch (e) {} });
-  }
-  // Put a bin entry's work back. Anything already there for the same unit
-  // (should not happen: the swap bins it first) is kept if it is newer.
-  // → number of items that were already there and kept
-  function putJobData(data) {
-    if (!data) return 0;
-    var kept = 0;
-    Object.keys(data.stores || {}).forEach(function (sk) {
-      var all = readJson(sk, {}) || {};
-      Object.keys(data.stores[sk]).forEach(function (r) {
-        var v = data.stores[sk][r];
-        if (all[r] === undefined) { all[r] = v; return; }
-        if (Array.isArray(v) && Array.isArray(all[r])) {        // units added on site: add the missing ones
-          var have = {}; all[r].forEach(function (x) { have[(x && x.uid) || JSON.stringify(x)] = true; });
-          v.forEach(function (x) { if (!have[(x && x.uid) || JSON.stringify(x)]) all[r].push(x); else kept++; });
-        } else if (v && typeof v === 'object') {                // per serial: the one already there wins
-          Object.keys(v).forEach(function (sk2) { if (all[r][sk2] === undefined) all[r][sk2] = v[sk2]; else kept++; });
-        }
-      });
-      if (!writeJson(sk, all)) throw new Error('Storage is full — the job\'s ticks could not be put back.');
-    });
-    var s = null; try { s = global.localStorage; } catch (e) {}
-    if (s) Object.keys(data.keys || {}).forEach(function (k) {
-      var now = null; try { now = s.getItem(k); } catch (e) {}
-      if (now !== null) {
-        var a = null, b = null; try { a = JSON.parse(now); b = JSON.parse(data.keys[k]); } catch (e) {}
-        kept++;
-        if (!(a && b && String(b.savedAt || '') > String(a.savedAt || ''))) return;
-      }
-      try { s.setItem(k, data.keys[k]); } catch (e) { throw new Error('Storage is full — saved readings could not be put back.'); }
-    });
-    return kept;
-  }
-
+  // BIN_DAYS and can be restored. Only the job's entry moves: its ticks,
+  // added units, corrections and saved readings stay where they are, so a
+  // restored job comes back exactly as it was. Its certificates are moved to
+  // the certificate bin by the page (LabCalCerts.trash with binnedWith = id).
   function binStore() {
     var b = readJson(KEY_BIN, []);
     return Array.isArray(b) ? b : [];
@@ -1568,79 +1430,50 @@
     // the open job's freshest copy is the current one
     var job = (cur && jobKey(cur.callNumber) === key) ? cur : all[key];
     if (!job) return null;
-    var data = collectJobData(job.callNumber || key);
     var entry = {
       id: 'bin' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
-      key: key, deletedAt: new Date().toISOString(), job: job, data: data
+      key: key, deletedAt: new Date().toISOString(), job: job
     };
     var bin = binStore();
     bin.unshift(entry);
-    // never take a job (or its work) off the list unless its copy in the bin was written
+    // never take a job off the list unless its copy in the bin was written
     if (!writeJson(KEY_BIN, bin)) throw new Error('Storage is full — the job could not be moved to the bin, so it was left on the list.');
-    removeJobData(data);
     delete all[key];
     writeJson(KEY_JOBS, all);
     if (activeKey() === key || (cur && jobKey(cur.callNumber) === key)) {
       try { global.localStorage.setItem(KEY_ACTIVE, ''); } catch (e) {}
       writeJson(KEY_CURRENT, null);
-      writeJson(KEY_HANDOFF, null);
-      try { setLink(null); } catch (e) {}
     }
     announce();
     return entry;
   }
   function binnedJobs() {
-    var listed = jobsStore();
     return binStore().map(function (e) {
       var d = new Date(e.deletedAt); d.setDate(d.getDate() + BIN_DAYS);
       var devices = ((e.job && e.job.devices) || []).filter(function (x) { return !x.duplicateMerged; });
-      var c = dataCounts(e.data);
       return {
         id: e.id, key: e.key, deletedAt: e.deletedAt,
         purgeOn: isNaN(d) ? '' : d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'),
         callNumber: (e.job && e.job.callNumber) || '', customer: (e.job && e.job.customer) || '',
         fileName: (e.job && e.job.fileName) || '', units: devices.length,
-        done: devices.filter(function (x) { return x.done; }).length,
-        withReadings: c.withReadings, hasData: !!e.data,
-        migrateNote: e.migrateNote || '',
-        onList: !!listed[e.key]
+        onList: !!jobsStore()[e.key]
       };
     });
   }
-  // → { ok:true, key, id, swapped? } or { ok:false, reason:'gone'|'exists'|'storage', message? }
-  // opts.swap: the same job number is on the list → that job goes to the bin
-  // first (with its work), then this one comes back. Its certificates are
-  // the page's job (swapped.id is the bin id to file them under).
-  function restoreJob(id, opts) {
+  // → { ok:true, key } or { ok:false, reason:'gone'|'exists' }
+  function restoreJob(id) {
     var bin = binStore();
-    var e = null;
-    bin.forEach(function (x) { if (x.id === id) e = x; });
-    if (!e) return { ok: false, reason: 'gone' };
-    var swapped = null;
-    if (jobsStore()[e.key]) {
-      if (!(opts && opts.swap)) return { ok: false, reason: 'exists', key: e.key };
-      try { swapped = binJob(e.key); }
-      catch (err) { return { ok: false, reason: 'storage', message: err && err.message ? err.message : String(err) }; }
-    }
-    try { putJobData(e.data); }
-    catch (err) { return { ok: false, reason: 'storage', message: err && err.message ? err.message : String(err), swapped: swapped }; }
-    var all = jobsStore();
+    var i = -1;
+    bin.forEach(function (e, n) { if (e.id === id) i = n; });
+    if (i < 0) return { ok: false, reason: 'gone' };
+    var e = bin[i], all = jobsStore();
+    if (all[e.key]) return { ok: false, reason: 'exists', key: e.key };
     all[e.key] = e.job;
-    if (!writeJson(KEY_JOBS, all)) return { ok: false, reason: 'storage', message: 'Storage is full — the job could not be put back on the list.', swapped: swapped };
-    bin = binStore().filter(function (x) { return x.id !== id; });
+    writeJson(KEY_JOBS, all);
+    bin.splice(i, 1);
     writeJson(KEY_BIN, bin);
     announce();
-    return { ok: true, key: e.key, id: e.id, swapped: swapped };
-  }
-  // v1.642: "Delete for good" — one bin entry now (the page asks for the PIN).
-  // Its certificates stay in the certificate bin (their own 30 days).
-  function purgeBinEntry(id) {
-    var bin = binStore();
-    var keep = bin.filter(function (e) { return e.id !== id; });
-    if (keep.length === bin.length) return false;
-    writeJson(KEY_BIN, keep);
-    announce();
-    return true;
+    return { ok: true, key: e.key, id: e.id };
   }
   // Remove bin entries older than BIN_DAYS. Returns how many went.
   function purgeBin() {
@@ -1649,35 +1482,6 @@
     var keep = bin.filter(function (e) { return String(e.deletedAt || '') >= cut; });
     if (keep.length !== bin.length) writeJson(KEY_BIN, keep);
     return bin.length - keep.length;
-  }
-  // v1.642: bin entries made before 1.642 left their work in storage. Give it
-  // to them now, where that is certain:
-  //  • job number NOT on the list → the newest bin entry for that number takes
-  //    the work (older entries of the same number get none — note 'older');
-  //  • job number on the list again → the work stays with the job on the list
-  //    (it may already be built on it) — note 'shared', nothing moved.
-  // Entries that already have data are never touched, so this can run on every load.
-  function migrateBin() {
-    var bin = binStore();
-    var todo = bin.filter(function (e) { return !e.data; });
-    if (!todo.length) return { moved: 0, shared: 0, older: 0 };
-    var listed = jobsStore(), out = { moved: 0, shared: 0, older: 0 }, taken = {};
-    // newest first (the bin is kept newest first, but do not rely on it)
-    todo.sort(function (a, b) { return String(a.deletedAt || '') < String(b.deletedAt || '') ? 1 : -1; });
-    var moves = [];
-    todo.forEach(function (e) {
-      var ref = (e.job && e.job.callNumber) || e.key;
-      if (listed[e.key]) { e.data = { stores: {}, keys: {} }; e.migrateNote = 'shared'; out.shared++; return; }
-      if (taken[refKey(ref)]) { e.data = { stores: {}, keys: {} }; e.migrateNote = 'older'; out.older++; return; }
-      taken[refKey(ref)] = true;
-      e.data = collectJobData(ref);
-      moves.push(e.data);
-      out.moved++;
-    });
-    if (!writeJson(KEY_BIN, bin)) return { moved: 0, shared: 0, older: 0, error: 'storage' };
-    moves.forEach(removeJobData);
-    if (out.moved) announce();
-    return out;
   }
 
   // A job created by hand, for work with no jobsheet.
@@ -1847,18 +1651,12 @@
   // and the engineer picks which ones to add (Select units window). Two
   // engineers on one job each add only the units they are doing. Without
   // opts.pick everything is added, as before (tests, older callers).
-  // v1.641 (Radek): opts.day — the day picked on the calendar. The job is put
-  // on that day (js.day); when it is not today it is marked js.plannedFor so the
-  // calendar shows it only there (not also on the day it was loaded) and the
-  // job page warns. Certificates are NOT affected: they are always dated the
-  // day the unit is really calibrated.
   function setCurrent(parsed, fileName, opts) {
     var pick = !!(opts && opts.pick);
-    var forDay = (opts && /^\d{4}-\d{2}-\d{2}$/.test(String(opts.day || ''))) ? String(opts.day) : todayIso();
     var js = {
       loadedAt: new Date().toISOString(),
       openedAt: new Date().toISOString(),
-      day: forDay,
+      day: todayIso(),
       fileName: fileName || '',
       customer: parsed.customer || '',
       callNumber: parsed.callNumber || '',
@@ -1866,7 +1664,6 @@
       visitDate: parsed.visitDate || '',
       address: parsed.address || '',
       department: parsed.department || '',
-      plannedFor: forDay !== todayIso() ? forDay : undefined,
       devices: (parsed.devices || []).map(function (d, i) {
         var s = suggestSheet(d);
         return {
@@ -1963,8 +1760,6 @@
       if (js.pickMode) existing.devices.forEach(function (d) { if (!serialKey(d.serial)) js.devices.push(d); });
       js.devices.forEach(function (d, i) { d.idx = i; });
       js.openedAt = existing.openedAt || js.openedAt;
-      // v1.641: reloading the sheet without a picked day keeps the job's planned day
-      if (!(opts && opts.day) && existing.plannedFor) { js.day = existing.day || existing.plannedFor; js.plannedFor = existing.plannedFor; }
       if (existing.startAt) js.startAt = existing.startAt;   // v1.624: job start time survives a reload of the sheet
     } else if (js.pickMode) {
       js.devices = [];          // v1.616: a new job starts empty — the engineer picks
@@ -1996,17 +1791,6 @@
     saveActiveJob();
     announce();
     return current();
-  }
-
-  // v1.641: job put on the wrong day by mistake — move the open job to today.
-  function moveCurrentToToday() {
-    var js = current(); if (!js) return null;
-    js.day = todayIso();
-    delete js.plannedFor;
-    writeJson(KEY_CURRENT, js);
-    saveActiveJob();
-    announce();
-    return js;
   }
 
   function clearCurrent() { writeJson(KEY_CURRENT, null); writeJson(KEY_HANDOFF, null); announce(); }
@@ -2076,7 +1860,6 @@
     // out of date is settled. Its readings' fingerprint is kept, so a later
     // change on the worksheet asks for a revised certificate again.
     delete hit.reissue;
-    delete hit.reopen;                 // v1.638: the revised certificate is made — locked again
     if (hit.serialWas) {
       hit.serialsBefore = (hit.serialsBefore || []).concat([hit.serialWas]);
       delete hit.serialWas;
@@ -2149,93 +1932,6 @@
     }
     return { changed: needsReissue(d), certRef: d.certRef || '' };
   }
-  // ---- v1.638 (Radek, 20 Nov 2026): a certified unit is LOCKED --------------
-  // Once its certificate is made, the unit's worksheet is read-only. The only
-  // way to change it is Re-issue on the job list (PIN), which sets d.reopen;
-  // the next certificate (markDone) clears it and the unit is locked again.
-  // Units already waiting for a revised certificate (needsReissue — changed
-  // before v1.638, or serial corrected) stay open so it can be issued.
-  function isCertLocked(d) {
-    return !!(d && d.done && !d.notRequired && !d.duplicateMerged && !d.reopen && !needsReissue(d));
-  }
-  // For a worksheet: the unit it is for, as the job list sees it.
-  function certLockFor(jobRef, serial) {
-    var ref = String(jobRef || '').trim();
-    var l = link();
-    if (!ref && l && l.jobRef) ref = l.jobRef;
-    var job = ref ? (jobKey((current() || {}).callNumber) === jobKey(ref) ? current() : jobByRef(ref)) : current();
-    var d = deviceForWorksheet(job, ref, serial || (l && l.serial) || '');
-    if (!d) return null;
-    return { locked: isCertLocked(d), done: !!d.done, reopened: !!d.reopen, certRef: d.certRef || '',
-      jobRef: (job && job.callNumber) || ref, serial: d.serial || '', uid: d.uid || '', sheet: d.sheet || '' };
-  }
-  // Re-issue (after the PIN): open the certified unit for a revised certificate.
-  function reopenUnit(jobRef, serial, uid) {
-    var ref = String(jobRef || '').trim();
-    if (ref && jobKey((current() || {}).callNumber) !== jobKey(ref) && jobsStore()[jobKey(ref)]) {
-      return withJob(ref, function () { return reopenUnit(jobRef, serial, uid); });
-    }
-    var js = current(); if (!js) return false;
-    var live = (js.devices || []).filter(function (d) { return !d.duplicateMerged; });
-    var d = (uid ? live.filter(function (x) { return x.uid === uid; })[0] : null) ||
-      live.filter(function (x) { return serialKey(x.serial) && serialKey(x.serial) === serialKey(serial); })[0];
-    if (!d || !d.done) return false;
-    d.reopen = { at: new Date().toISOString(), certRef: d.certRef || '' };
-    writeJson(KEY_CURRENT, js);
-    saveActiveJob();
-    announce();
-    return true;
-  }
-
-  // ---- v1.643 (Radek, 21 Nov 2026): VOID ------------------------------------
-  // After its certificate is voided (calibration page, PIN + reason) the unit
-  // goes back to TO DO: not done, not locked, no certificate. Its saved
-  // readings stay (the engineer decides whether to clear them); the next
-  // certificate gets a NEW number (labcal_certno.js). A short history of the
-  // voids stays on the unit (d.voids) for the job page.
-  // info: { certRef, reason, at }  →  true when a unit was reset
-  function voidUnit(jobRef, serial, uid, info) {
-    info = info || {};
-    var ref = String(jobRef || '').trim();
-    if (ref && jobKey((current() || {}).callNumber) !== jobKey(ref)) {
-      if (!jobsStore()[jobKey(ref)]) return false;
-      return withJob(ref, function () { return voidUnit(jobRef, serial, uid, info); });
-    }
-    var js = current(); if (!js) return false;
-    var live = (js.devices || []).filter(function (d) { return !d.duplicateMerged; });
-    var d = (uid ? live.filter(function (x) { return x.uid === uid; })[0] : null) ||
-      live.filter(function (x) { return serialKey(x.serial) && serialKey(x.serial) === serialKey(serial); })[0];
-    if (!d) return false;
-    // only when the voided certificate is the one the unit stands on (a voided
-    // old revision, or another unit's certificate, changes nothing here)
-    var mine = !info.certRef || !d.certRef || normCert(d.certRef) === normCert(info.certRef);
-    if (!mine) return false;
-    var at = info.at || new Date().toISOString();
-    d.voids = (d.voids || []).concat([{ certRef: info.certRef || d.certRef || '', reason: info.reason || '', at: at }]);
-    d.done = false;
-    d.doneAt = '';
-    d.certRef = '';
-    d.detail = '';
-    d.certPrint = '';
-    delete d.reissue; delete d.reopen; delete d.carriedOver;
-    writeJson(KEY_CURRENT, js);
-    saveActiveJob();
-    // the progress record (keyed by serial) must not put the tick back
-    var all = progressStore();
-    var job = all[String(js.callNumber || '')] || {};
-    [d.serial].concat(d.serialsBefore || []).forEach(function (sr) {
-      var k = serialKey(sr);
-      if (!k || !job[k]) return;
-      if (job[k].notRequired) { job[k].done = false; job[k].doneAt = ''; job[k].certRef = ''; job[k].detail = ''; }
-      else delete job[k];
-    });
-    all[String(js.callNumber || '')] = job;
-    writeJson(KEY_PROGRESS, all);
-    announce();
-    return true;
-  }
-  function normCert(v) { return String(v || '').toUpperCase().replace(/[^A-Z0-9]/g, ''); }
-
   // For a worksheet being opened: is its certified unit waiting for a revised certificate?
   function reissueFor(jobRef, serial) {
     var job = jobRef ? jobByRef(jobRef) : current();
@@ -2533,9 +2229,6 @@
     binnedJobs: binnedJobs,
     restoreJob: restoreJob,
     purgeBin: purgeBin,
-    purgeBinEntry: purgeBinEntry,   // v1.642
-    migrateBin: migrateBin,         // v1.642
-    collectJobData: collectJobData, // v1.642 (tests / checks)
     jobKey: jobKey,
     updateDevice: updateDevice,
     markDone: markDone,
@@ -2543,10 +2236,6 @@
     noteWorksheetState: noteWorksheetState,
     changeSheet: changeSheet,           // v1.631
     reissueFor: reissueFor,
-    isCertLocked: isCertLocked,        // v1.638
-    certLockFor: certLockFor,          // v1.638
-    reopenUnit: reopenUnit,            // v1.638
-    voidUnit: voidUnit,                // v1.643
     arrivedFromList: arrivedFromList,
     progress: progress,
     isStarted: isStarted,
@@ -2576,7 +2265,6 @@
     // routing
     suggestSheet: suggestSheet,
     learnRoute: learnRoute,
-    moveCurrentToToday: moveCurrentToToday,
     forgetRoutes: forgetRoutes,
     routes: routes,
     routeCount: routeCount,
@@ -2596,9 +2284,4 @@
     onChange: onChange,
     ddmmyyyyToIso: ddmmyyyyToIso
   };
-  // v1.642: old bin entries take their work with them (once; safe to repeat).
-  try {
-    var mig = migrateBin();
-    if (mig && (mig.moved || mig.shared || mig.older)) console.info('LabCal bin migration:', JSON.stringify(mig));
-  } catch (e) { console.warn('LabCal bin migration not done:', e); }
 })(typeof window !== 'undefined' ? window : this);

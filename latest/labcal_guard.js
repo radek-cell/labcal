@@ -1,4 +1,4 @@
-(window.LabCalBuild = window.LabCalBuild || {})['labcal_guard.js'] = 'v1.643';  // file version — see labcal_build.js
+(window.LabCalBuild = window.LabCalBuild || {})['labcal_guard.js'] = 'v1.634';  // file version — see labcal_build.js
 /* ---------------------------------------------------------------------
    LabCal — certificate identity guard (v1.550)
    ---------------------------------------------------------------------
@@ -123,7 +123,7 @@
     var C = global.LabCalCerts;
     if (!C || !C.supported || !C.supported() || !C.all) return Promise.resolve([]);
     return C.all().then(function (list) {
-      var mine = list.filter(function (r) {
+      return list.filter(function (r) {
         if (uid && r.unitUid) return r.unitUid === uid;
         return key(r.serial) && key(r.serial) === key(ctx.serial) &&
                key(r.jobRef) === key(ctx.jobRef) &&
@@ -131,11 +131,6 @@
                 // IBB and NSMD certificates were filed as 'smd' before v1.550
                 (r.sheet === 'smd' && (ctx.sheet === 'ibb' || ctx.sheet === 'nsmd')));
       });
-      // v1.643: after a VOID the unit starts again — the voided certificate and
-      // everything made before it are not "earlier certificates" (new number, rev 1)
-      var lastVoid = '';
-      mine.forEach(function (r) { if (r.voidedAt && !r.deletedAt && String(r.savedAt || '') > lastVoid) lastVoid = String(r.savedAt || ''); });
-      return lastVoid ? mine.filter(function (r) { return String(r.savedAt || '') > lastVoid; }) : mine;
     });
   }
 

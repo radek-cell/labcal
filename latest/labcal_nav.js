@@ -1,4 +1,4 @@
-(window.LabCalBuild = window.LabCalBuild || {})['labcal_nav.js'] = 'v1.643';  // file version — see labcal_build.js
+(window.LabCalBuild = window.LabCalBuild || {})['labcal_nav.js'] = 'v1.634';  // file version — see labcal_build.js
 /* ---------------------------------------------------------------------
    LabCal — Back / Home on the worksheet toolbar (v1.563)
    ---------------------------------------------------------------------
@@ -232,20 +232,8 @@
       'background:#fff;text-align:left;font:inherit;color:inherit;cursor:pointer}' +
     '#lcUnitsPanel .lcu-row:active{background:#eef3f8}' +
     '#lcUnitsPanel .lcu-row.here{background:#eef4fb;box-shadow:inset 4px 0 0 #24405e;cursor:default}' +
-    // v1.635: full serial (wraps), model on the same line, location + status under it
-    '#lcUnitsPanel .lcu-txt{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}' +
-    '#lcUnitsPanel .lcu-l1{display:flex;flex-wrap:wrap;align-items:baseline;column-gap:8px;row-gap:1px}' +
-    '#lcUnitsPanel .lcu-n{font-weight:800;font-size:15px;overflow-wrap:anywhere;word-break:break-all;font-variant-numeric:tabular-nums}' +
-    '#lcUnitsPanel .lcu-m{font-size:12.5px;color:#56687a;font-weight:600}' +
-    '#lcUnitsPanel .lcu-l2{font-size:12.5px;color:#56687a;line-height:1.45}' +
-    '#lcUnitsPanel .lcu-l2 b{color:#1d2a38}' +
-    '#lcUnitsPanel .lcu-pr{display:inline-flex;gap:3px;margin-right:4px;vertical-align:1px}' +
-    '#lcUnitsPanel .lcu-pr b{font:700 11.5px ui-monospace,Menlo,monospace;background:#eef2f5;border-radius:5px;padding:0 6px;color:#102a3d}' +
-    '#lcUnitsPanel .lcu-st{font-weight:700;color:#24405e}' +
-    '#lcUnitsPanel .lcu-st.k-stab,#lcUnitsPanel .lcu-st.k-wait{color:#a35a00}' +
-    '#lcUnitsPanel .lcu-st.k-cycle{color:#1a5fb4}' +
-    '#lcUnitsPanel .lcu-st.k-ready{color:#1e7a45}' +
-    '#lcUnitsPanel .lcu-side{flex:0 0 auto;display:flex;flex-direction:column;align-items:flex-end;gap:6px}' +
+    '#lcUnitsPanel .lcu-n{font-weight:800;flex:0 0 auto;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}' +
+    '#lcUnitsPanel .lcu-d{flex:1;min-width:0;font-size:12.5px;color:#56687a;overflow:hidden;text-overflow:ellipsis}' +
     '#lcUnitsPanel .lcu-chip{flex:0 0 auto;font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;border:1px solid #9aa7b4;color:#44566b;background:#f4f6f8}' +
     '#lcUnitsPanel .lcu-chip.done{color:#1e7a45;border-color:#1e7a45;background:#e8f6ee}' +
     '#lcUnitsPanel .lcu-chip.started{color:#7a5200;border-color:#c98a1b;background:#fff5e0}' +
@@ -340,25 +328,6 @@
     list.forEach(function (d, n) { if (k < 0 && here && (d === here || (d.uid && d.uid === here.uid) || serialKey(d.serial) === serialKey(here.serial))) k = n; });
     if (k < 0) return { prev: null, next: null };
     return { prev: k > 0 ? list[k - 1] : null, next: k < list.length - 1 ? list[k + 1] : null };
-  }
-  // v1.635: probes in this unit (As Found row) and when they went in — the
-  // open form for the unit on screen, its autosave for the others.
-  function unitProbes(ref, r) {
-    var out = { probes: [], inAt: '' }, state = null;
-    try {
-      var U = global.LabCalUnits;
-      if (r.here && U && U.captureForm) state = U.captureForm(doc);
-      else if (U && U.peek && r.d.sheet && r.d.serial) { var rec = U.peek(r.d.sheet, ref, r.d.serial); state = rec && rec.state; }
-    } catch (e) { state = null; }
-    if (!state) return out;
-    ['af_air1_probe', 'af_air2_probe', 'af_air3_probe', 'af_load_probe', 'af_chart_probe'].forEach(function (k) {
-      var v = String(state[k] == null ? '' : state[k]).trim();
-      if (!v || /^-?N\/?A-?$/i.test(v)) return;
-      if (out.probes.indexOf(v) === -1) out.probes.push(v);
-    });
-    var h = String(state.af_probes_in_h || ''), m = String(state.af_probes_in_m || '');
-    if (/^\d\d?$/.test(h) && /^\d\d?$/.test(m)) out.inAt = ('0' + h).slice(-2) + ':' + ('0' + m).slice(-2);
-    return out;
   }
   function goUnit(ref, serial) {
     if (!okToLeave()) return;
@@ -481,32 +450,14 @@
     }
     var q = unitsFilter.trim().toLowerCase();
     var match = function (r) { return !q || [r.d.serial, r.d.model, r.d.equipment, r.d.location, r.sheet].join(' ').toLowerCase().indexOf(q) > -1; };
-    // v1.635 (Radek, 20 Nov 2026): two lines per unit — model + FULL serial
-    // (may wrap), then location + status: which probes are in and since when,
-    // and the stage from the timeline (same text as Live probes). Read only.
-    var liveData = null;
-    try { var Sch = global.LabCalSchedule; if (Sch && Sch.live) liveData = Sch.live(); } catch (e) { liveData = null; }
     var rowHtml = function (r) {
       var chip = r.d.done ? '<span class="lcu-chip done">✓ done</span>' : r.d.notRequired ? '<span class="lcu-chip">not required</span>'
         : r.started ? '<span class="lcu-chip started">started</span>' : '<span class="lcu-chip">to do</span>';
-      var pr = unitProbes(i.ref, r);
-      var stage = null;
-      if (!r.d.done && !r.d.notRequired) {
-        try { stage = liveData && global.LabCalSchedule.liveFor(i.ref, r.d.serial, liveData); } catch (e) { stage = null; }
-      }
-      var line1 = '<span class="lcu-n">' + esc(r.d.serial || '(no serial)') + '</span>' +
-        '<span class="lcu-m">' + esc([r.d.model || r.d.equipment || '', r.sheet || 'no worksheet chosen'].filter(Boolean).join(' · ')) + '</span>';
-      var st = [];
-      if (r.d.done) st.push(r.d.certRef ? 'certificate ' + r.d.certRef : 'certificate made');
-      else if (pr.probes.length) st.push('<span class="lcu-pr">' + pr.probes.map(function (x) { return '<b>' + esc(x) + '</b>'; }).join('') + '</span>' +
-        (pr.inAt ? 'in at <b>' + esc(pr.inAt) + '</b>' : 'no loading time'));
-      if (stage && stage.text && stage.kind !== 'done') st.push('<span class="lcu-st k-' + esc(stage.kind) + '">' + esc(stage.text) + '</span>');
-      if (r.elsewhere && !r.here) st.push('<b>open in another tab</b>');
-      var line2 = [r.d.location ? esc(r.d.location) : ''].concat(st).filter(Boolean).join(' · ');
+      var det = [r.sheet || 'no worksheet chosen', r.d.model || r.d.equipment || '', r.d.location || '', r.d.done && r.d.certRef ? r.d.certRef : '']
+        .filter(Boolean).map(esc).join(' · ') + (r.elsewhere && !r.here ? ' · <b>open in another tab</b>' : '');
       var go = r.here ? '<span class="lcu-go" style="color:#24405e">here</span>' : '<span class="lcu-go">' + (r.d.done ? 'View' : 'Open') + ' ›</span>';
-      return '<button type="button" class="lcu-row' + (r.here ? ' here' : '') + '" data-lcu="' + r.n + '">' +
-        '<span class="lcu-txt"><span class="lcu-l1">' + line1 + '</span>' + (line2 ? '<span class="lcu-l2">' + line2 + '</span>' : '') + '</span>' +
-        '<span class="lcu-side">' + chip + go + '</span></button>';
+      return '<button type="button" class="lcu-row' + (r.here ? ' here' : '') + '" data-lcu="' + r.n + '"><span class="lcu-n">' +
+        esc(r.d.serial || '(no serial)') + '</span><span class="lcu-d">' + det + '</span>' + chip + go + '</button>';
     };
     var sect = function (title, list) {
       list = list.filter(match);
@@ -590,11 +541,8 @@
     earlierVisits(u).then(function (v) {
       if (seq !== histSeq) return;                      // the form changed meanwhile
       histFor = sig; histVisits = v;
-      // v1.643: a voided certificate is not a calibration — the line names the
-      // newest valid one (the panel still lists the voided ones, marked)
-      var valid = v.filter(function (x) { return !x.voidedAt; });
-      if (!valid.length) { el.hidden = true; el.innerHTML = ''; el.removeAttribute('title'); return; }
-      var e = valid[0];
+      if (!v.length) { el.hidden = true; el.innerHTML = ''; el.removeAttribute('title'); return; }
+      var e = v[0];
       var txt = 'Calibrated before: ' + dmy(e.savedAt || e.day) + ' · ' + (e.certRef || e.summary || e.filename) +
         (e.jobRef ? ' · job ' + e.jobRef : '') + (e.location ? ' · ' + e.location : '');
       el.innerHTML = '<span aria-hidden="true">↺</span><span class="lchl-txt">' + esc(txt) + '</span>' +
@@ -617,8 +565,7 @@
     var v = histVisits, u = formUnit();
     if (!v.length) return;
     var items = v.map(function (e) {
-      var l1 = dmy(e.savedAt || e.day) + ' · ' + (e.certRef || e.summary || e.filename) + (Number(e.rev) > 1 ? ' (rev ' + e.rev + ')' : '') +
-        (e.voidedAt ? ' · VOIDED' + (e.voidReason ? ' — ' + e.voidReason : '') : '');
+      var l1 = dmy(e.savedAt || e.day) + ' · ' + (e.certRef || e.summary || e.filename) + (Number(e.rev) > 1 ? ' (rev ' + e.rev + ')' : '');
       var l2 = [e.jobRef ? 'job ' + e.jobRef : '', e.site, e.location, e.model, SHEET_NAMES[e.sheet] || e.sheet].filter(Boolean).join(' · ');
       return '<div class="lcp-item"><div class="lcp-l1">' + esc(l1) + '</div><div class="lcp-l2">' + esc(l2) + '</div></div>';
     }).join('');
@@ -686,7 +633,7 @@
     return C.all().then(function (list) {
       var best = null;
       (list || []).forEach(function (r) {
-        if (!r || r.deletedAt || r.voidedAt || !(r.blob instanceof Blob) || !r.blob.size) return;   // v1.643: never a voided one
+        if (!r || r.deletedAt || !(r.blob instanceof Blob) || !r.blob.size) return;
         if (String(r.jobRef || '').trim().toUpperCase() !== rk || serialKey(r.serial) !== sk) return;
         if (!best || String(r.savedAt || '') > String(best.savedAt || '')) best = r;
       });
@@ -707,8 +654,7 @@
       doc.head.appendChild(sc);
     });
   }
-  function viewThisCert(id, opts) {
-    opts = opts || {};
+  function viewThisCert(id) {
     var C = global.LabCalCerts;
     closePanel('lcNextPanel');
     var old = doc.getElementById('lcCertView'); if (old) old.remove();
@@ -727,9 +673,7 @@
     var box = doc.createElement('div');
     box.id = 'lcCertView'; box.setAttribute('role', 'dialog'); box.setAttribute('aria-label', 'Certificate');
     box.innerHTML = '<div class="cv-bar"><span class="cv-name">Opening certificate…</span>' +
-      '<button type="button" class="cv-share" disabled>Share</button>' +
-      (opts.jobUrl ? '<button type="button" class="cv-job">Back to job</button>' : '') +
-      '<button type="button" class="cv-close">' + (opts.jobUrl ? 'Next unit' : 'Close') + '</button></div>' +
+      '<button type="button" class="cv-share" disabled>Share</button><button type="button" class="cv-close">Close</button></div>' +
       '<div class="cv-body"><div class="cv-msg">Opening certificate…</div></div>';
     doc.body.appendChild(box);
     var prevOverflow = doc.body.style.overflow; doc.body.style.overflow = 'hidden';
@@ -745,9 +689,6 @@
     }
     doc.addEventListener('keydown', onKey, true);
     box.querySelector('.cv-close').addEventListener('click', close);
-    // v1.638: the certificate shown after Generate / on a locked worksheet — straight back to the job
-    var jb = box.querySelector('.cv-job');
-    if (jb) jb.addEventListener('click', function () { global.location.href = opts.jobUrl; });
     var rec = null;
     (C && C.get ? C.get(id) : Promise.resolve(null)).then(function (r) {
       rec = r;
@@ -829,8 +770,6 @@
     global.addEventListener('labcal-file-delivered', function (e) {
       var d = (e && e.detail) || {};
       if (d.certIds || !/\.pdf$/i.test(String(d.filename || ''))) return;   // merged files / Excel: no
-      // v1.638: with the certificate lock on, labcal_certlock.js shows the certificate instead
-      try { if (global.LabCalCertLock && global.LabCalCertLock.enabled() && global.LabCalCertLock.isPageLocked()) return; } catch (e2) {}
       global.setTimeout(showNext, 350);
     });
     // Save to job list (the engineer's own tap, when it worked)
@@ -993,10 +932,6 @@
     _renderHistLine: renderHistLine,
     showHistory: showHistory,
     showNext: showNext,
-    // v1.638: this unit's stored certificate, in LabCal (null = none stored)
-    viewThisCertificate: function (opts) {
-      return thisUnitCert().then(function (rec) { if (rec) viewThisCert(rec.id, opts); return rec; });
-    },
     showUnits: showUnits,          // v1.600
     _neighbours: function () { var i = jobLineInfo(); return i ? neighbours(i) : null; },
     _remaining: remainingUnits,

@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta name="labcal-build" content="v1.643">
+<meta name="labcal-build" content="v1.634">
 <script src="labcal_build.js"></script>
 <script src="labcal_errlog.js"></script>
 <script src="labcal_shell.js"></script>  <!-- v1.619: side menu -->
@@ -18,7 +18,6 @@
 <script src="labcal_offsets.js"></script>
 <script src="labcal_tablock.js"></script>
 <script src="labcal_nav.js"></script>
-<script src="labcal_certlock.js"></script>  <!-- v1.638: certified unit = locked worksheet -->
 <script src="labcal_jobsheet.js"></script>
 <script src="labcal_testmode.js"></script>
 <script src="labcal_save.js"></script>
@@ -1645,7 +1644,6 @@ async function generateVectorPDF(){
     await fileCertificateForToday(blob, filename);
     markJobsheetDone();
     if(window.LabCalSave){ await LabCalSave.deliver(blob, filename); }
-    if(window.LabCalCertLock) LabCalCertLock.afterCertificate();   // v1.638: worksheet locked, certificate shown
     else { downloadBlob(blob,filename); }
     return true;
   }catch(err){
@@ -1731,7 +1729,6 @@ async function generatePDF(){
     await fileCertificateForToday(blob, filename);
     markJobsheetDone();
     if(window.LabCalSave){ await LabCalSave.deliver(blob, filename); }
-    if(window.LabCalCertLock) LabCalCertLock.afterCertificate();   // v1.638: worksheet locked, certificate shown
     else { downloadBlob(blob,filename); }
   }catch(err){
     alert('PDF generation failed: '+(err && err.message ? err.message : err));

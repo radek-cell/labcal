@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="labcal-build" content="v1.643">
+<meta name="labcal-build" content="v1.634">
 <script src="labcal_build.js"></script>
 <script src="labcal_errlog.js"></script>
 <script src="labcal_shell.js"></script>  <!-- v1.619: side menu -->
@@ -26,7 +26,6 @@
 <script src="labcal_jobpack.js"></script>
 <script src="labcal_jobfiles.js"></script>
 <script src="labcal_pin.js"></script>
-<script src="labcal_toolsgate.js"></script>  <!-- v1.637: #combine / #strays behind PIN or office password -->
 <script src="lib/jspdf.umd.min.js"></script>
 <script src="labcal_vector_pdf.js"></script>
 <script src="labcal_units.js"></script>
@@ -386,27 +385,6 @@ h1{font-size:clamp(28px,4vw,42px);line-height:1.1;margin:0 0 14px;font-weight:70
 }
 .uc-name{font-family:var(--mono);font-size:11px;font-weight:650;color:#20603a}
 .ucert.sup .uc-name{color:var(--muted-dim);text-decoration:line-through}
-/* v1.643: a voided certificate — kept on record, never valid */
-.ucert.void{background:#fdecea;border-color:#e0a49c;border-left:4px solid #b0281a}
-.ucert.void .uc-name{color:#7d1d12;text-decoration:line-through}
-.void-tag{display:inline-block;padding:1px 7px;border-radius:6px;background:#b0281a;color:#fff;font-size:11px;font-weight:800;letter-spacing:.04em}
-.void-why{font-size:12px;color:#7d1d12}
-.crow.voided{background:#fdf4f3}
-.crow.voided .crow-name{color:#7d1d12}
-.chk-badge.voided{background:#b0281a;color:#fff;border:1px solid #b0281a}
-.vd-ov{position:fixed;inset:0;z-index:10000;background:rgba(20,24,30,.55);display:flex;align-items:center;justify-content:center;padding:16px}
-.vd-panel{background:#fff;border-radius:14px;max-width:460px;width:100%;padding:18px;box-shadow:0 10px 40px rgba(0,0,0,.3);font:15px/1.35 -apple-system,system-ui,Arial,sans-serif;color:#1d232b}
-.vd-title{font-weight:800;font-size:18px;margin-bottom:4px}
-.vd-sub{font-size:13px;color:#4a5560;margin-bottom:12px}
-.vd-picks{display:flex;flex-direction:column;gap:8px}
-.vd-picks button{min-height:46px;text-align:left;padding:8px 14px;border-radius:10px;border:2px solid #cfd6dd;background:#fff;font:600 15px/1.2 inherit;color:#1d232b;cursor:pointer}
-.vd-picks button.on{border-color:#b0281a;background:#fdecea;color:#7d1d12}
-.vd-other{width:100%;box-sizing:border-box;min-height:44px;margin-top:8px;padding:8px 10px;border:2px solid #cfd6dd;border-radius:10px;font:15px inherit}
-.vd-err{color:#b0281a;font-size:13px;min-height:18px;margin-top:6px}
-.vd-bar{display:flex;gap:8px;justify-content:flex-end;margin-top:10px}
-.vd-bar button{min-height:44px;padding:0 18px;border-radius:22px;border:2px solid #cfd6dd;background:#fff;font:700 15px/1 inherit;cursor:pointer}
-.vd-bar button.vd-go{background:#b0281a;border-color:#b0281a;color:#fff}
-.vd-bar button.vd-go:disabled{opacity:.45}
 .uc-tag{font-family:var(--mono);font-size:8.5px;text-transform:uppercase;letter-spacing:.4px;color:var(--amber)}
 .othercerts{margin-top:14px;padding-top:12px;border-top:1px solid var(--border)}
 .othercerts h5{margin:0 0 6px;font-size:12px;font-weight:650;letter-spacing:-.1px}
@@ -607,17 +585,6 @@ h1{font-size:clamp(28px,4vw,42px);line-height:1.1;margin:0 0 14px;font-weight:70
   margin:10px 0 0;padding:8px 11px;border-radius:6px;font-size:12.5px;
   background:#e9f5ea;border:1px solid var(--green);color:#20603a;
 }
-/* v1.641: load job sheet for another day */
-.lday-back{position:fixed;inset:0;background:rgba(10,30,50,.45);z-index:9000;display:flex;align-items:center;justify-content:center;padding:16px}
-.lday{background:#fff;border-radius:18px;max-width:560px;width:100%;padding:20px 22px;box-shadow:0 12px 40px rgba(0,0,0,.25)}
-.lday h3{margin:0 0 10px;font-size:20px}
-.lday-warn{background:#fff4dc;border:1px solid #f0c674;color:#7a4a00;border-radius:10px;padding:10px 12px;margin:0 0 8px;font-weight:600}
-.lday-note{color:#46525f;margin:0 0 14px;font-size:14px}
-.lday-acts{display:flex;gap:8px;flex-wrap:wrap}
-.lday-acts .jbtn{min-height:44px}
-.lday-bar{display:flex;gap:12px;align-items:center;justify-content:space-between;background:#fff4dc;border:2px solid #b86e00;color:#5c3800;border-radius:14px;padding:10px 14px;margin:8px 0}
-.lday-bar span{display:block;font-size:14px;margin-top:2px}
-.lday-bar .jbtn{min-height:44px;white-space:nowrap}
 .toast.bad{background:#fdecea;border-color:#c0392b;color:#8a3222}
 .prog .split{color:var(--muted-dim)}
 .prog .ptrack i.started{background:var(--amber)}
@@ -883,7 +850,7 @@ html.lcs-view-ws #packCombinePanel,html.lcs-view-ws #straysPanel{display:none!im
 
   <footer>
     <span>LabCal Calibration Suite · offline worksheet toolkit</span>
-    <span id="footYear">v1.643</span>
+    <span id="footYear">v1.634</span>
   </footer>
 
 </div>
@@ -1128,7 +1095,7 @@ function renderDate(){
   const d = new Date();
   const opts = {day:'2-digit', month:'short', year:'numeric'};
   document.getElementById('todayDate').textContent = d.toLocaleDateString('en-GB', opts).toUpperCase();
-  document.getElementById('footYear').textContent = 'v1.643 · ' + d.getFullYear();
+  document.getElementById('footYear').textContent = 'v1.634 · ' + d.getFullYear();
 }
 
 
@@ -1299,16 +1266,6 @@ function showReturnUnit(){
   }
   if(openReturnUnit){
     openReturnUnit = false;
-    // v1.638: a certified (locked) unit asked for by name → its certificate
-    if(certLockOn() && LabCalJobsheet.isCertLocked){
-      const jsr = LabCalJobsheet.current();
-      const dl = jsr && (jsr.devices||[]).find(x=>!x.duplicateMerged && String(x.serial||'').toUpperCase().replace(/[^A-Z0-9]/g,'') === want);
-      if(dl && LabCalJobsheet.isCertLocked(dl)){
-        if(row){ try{ row.scrollIntoView({ block:'center' }); }catch(e){} }
-        showUnitCertificate(dl);
-        return;
-      }
-    }
     // v1.600: a finished unit asked for by name (path ‹ / ›, unit switcher,
     // home "Carry on") is folded away — unfold the done units to reach it.
     if(!row && !doneOpen){
@@ -1511,7 +1468,7 @@ async function renderDayView(){
       </div>
       <div class="job-actions">
         <button class="jbtn ghost mini" type="button" id="dayNewJob">+ New job</button>
-        <button class="jbtn ghost mini" type="button" id="dayLoadSheet">Load jobsheet${selDay && selDay !== today ? ' for ' + jesc(shortDay(selDay)) : ''}</button>
+        <button class="jbtn ghost mini" type="button" id="dayLoadSheet">Load jobsheet</button>
       </div>
     </div>
     <div class="newjob" id="newJobForm">
@@ -1559,15 +1516,10 @@ async function binHtml(){
     return `<div class="binrow">
       <div class="bin-main">
         <div class="bin-name">Job ${jesc(j.callNumber || '(no job reference)')}${j.customer?' · '+jesc(j.customer):''}</div>
-        <div class="bin-meta">${j.units} unit${j.units===1?'':'s'}${j.done?` (${j.done} done)`:''}${j.withReadings?` · readings for ${j.withReadings}`:''}${n?` · ${n} certificate${n===1?'':'s'}`:''}${j.fileName?' · '+jesc(j.fileName):''} · deleted ${jesc(fmtStamp(j.deletedAt))} · removed for good ${jesc(fmtDay(j.purgeOn))}</div>
-        ${j.migrateNote==='shared'?'<div class="bin-meta warn">Deleted before v1.642: its saved readings stayed with the job of the same number on the list.</div>':''}
-        ${j.migrateNote==='older'?'<div class="bin-meta warn">Deleted before v1.642: its saved readings went with the newer copy of this job in the bin.</div>':''}
-        ${j.onList?'<div class="bin-meta warn">This job number is on the list now. Restore swaps them: the job on the list goes to the bin with its own readings and certificates, and can be swapped back.</div>':''}
+        <div class="bin-meta">${j.units} unit${j.units===1?'':'s'}${n?` · ${n} certificate${n===1?'':'s'}`:''}${j.fileName?' · '+jesc(j.fileName):''} · deleted ${jesc(fmtStamp(j.deletedAt))} · removed for good ${jesc(fmtDay(j.purgeOn))}</div>
+        ${j.onList?'<div class="bin-meta warn">This job number is on the list again (jobsheet loaded again), so this copy cannot be restored over it.</div>':''}
       </div>
-      <div class="bin-ctl">
-        <button class="cbtn" type="button" data-binjob="${jesc(j.id)}">${j.onList?'Swap in':'Restore'}</button>
-        <button class="cbtn danger" type="button" data-binpurge="${jesc(j.id)}">Delete for good</button>
-      </div>
+      <div class="bin-ctl">${j.onList?'':`<button class="cbtn" type="button" data-binjob="${jesc(j.id)}">Restore</button>`}</div>
     </div>`;
   }).join('');
   const certRows = loose.map(c=>`<div class="binrow">
@@ -1583,7 +1535,7 @@ async function binHtml(){
   return `<div class="binbox">
     <button class="jfold binfold" type="button" id="binToggle" aria-expanded="true">
       <span class="jf-chev" aria-hidden="true">▾</span> 🗑 Bin — ${what} <span class="jf-act">Hide</span></button>
-    <div class="bin-note">Deleted jobs and certificates are kept here for ${days} days, then removed for good. A certificate number stays reserved for good — also after the certificate is removed from the bin; it is never given to another unit.</div>
+    <div class="bin-note">Deleted jobs and certificates are kept here for ${days} days, then removed for good. A certificate number in the bin stays reserved — using it again for another unit still gives the warning.</div>
     ${jobRows}${certRows}
   </div>`;
 }
@@ -1598,90 +1550,21 @@ function bindBin(){
     }catch(e){ jobToast = {text:'Could not restore: '+(e&&e.message?e.message:e), bad:true}; }
     renderCalibrationPage();
   }));
-  dayPanel.querySelectorAll('[data-binjob]').forEach(b=>b.addEventListener('click', ()=>restoreBinnedJob(b.getAttribute('data-binjob'))));
-  dayPanel.querySelectorAll('[data-binpurge]').forEach(b=>b.addEventListener('click', ()=>purgeBinnedJob(b.getAttribute('data-binpurge'))));
+  dayPanel.querySelectorAll('[data-binjob]').forEach(b=>b.addEventListener('click', async ()=>{
+    const id = b.getAttribute('data-binjob');
+    const res = LabCalJobsheet.restoreJob(id);
+    if(!res.ok){
+      jobToast = {text: res.reason==='exists' ? `Job ${res.key} is already on the list, so the copy in the bin cannot be restored over it.` : 'That job is no longer in the bin.', bad:true};
+      renderCalibrationPage(); return;
+    }
+    let n = 0;
+    try{ if(window.LabCalCerts && LabCalCerts.supported()) n = await LabCalCerts.untrashWith(id); }catch(e){ console.warn('Certificates not restored with the job:', e); }
+    LabCalJobsheet.setActiveJob(res.key);
+    viewMode = 'job'; certJobFilter = null; jobFilter = '';
+    jobToast = {text:`Job restored from the bin${n?` with ${n} certificate${n===1?'':'s'}`:''}.`};
+    renderCalibrationPage();
+  }));
 }
-
-// v1.642: the certificates that belong to a job (by job number or unit id).
-async function liveCertsOfJob(js){
-  if(!js || !window.LabCalCerts || !LabCalCerts.supported()) return [];
-  const k = LabCalJobsheet.jobKey(js.callNumber || '');
-  const uids = new Set((js.devices||[]).map(d=>d.uid).filter(Boolean));
-  return (await LabCalCerts.all()).filter(r=>!r.deletedAt &&
-    ((r.jobRef && LabCalJobsheet.jobKey(r.jobRef) === k) || (r.unitUid && uids.has(r.unitUid))));
-}
-// v1.642 (Radek: option A): Restore. If the same job number is on the list,
-// the two are SWAPPED — the job on the list (with its readings and
-// certificates) goes to the bin first, so nothing is lost. PIN for a swap.
-async function restoreBinnedJob(id){
-  const entry = LabCalJobsheet.binnedJobs().filter(j=>j.id===id)[0];
-  if(!entry){ jobToast = {text:'That job is no longer in the bin.', bad:true}; renderCalibrationPage(); return; }
-  let swapCerts = [];
-  if(entry.onList){
-    const onList = LabCalJobsheet.jobByRef(entry.key);
-    const p = onList ? LabCalJobsheet.progressOf(LabCalJobsheet.jobSnapshot(entry.key)) : {total:0, done:0};
-    try{ swapCerts = await liveCertsOfJob(onList); }catch(e){ console.warn('Certificates of the job on the list could not be read:', e); }
-    const unsaved = swapCerts.filter(r=>LabCalCerts.isUnsaved && LabCalCerts.isUnsaved(r)).length;
-    const lines = [
-      `Job ${entry.callNumber || entry.key} is on the list now (${p.total} unit${p.total===1?'':'s'}${p.done?`, ${p.done} done`:''}${swapCerts.length?`, ${swapCerts.length} certificate${swapCerts.length===1?'':'s'}`:''}).`,
-      '',
-      `Swap it with the copy in the bin (deleted ${fmtStamp(entry.deletedAt)}, ${entry.units} unit${entry.units===1?'':'s'}${entry.withReadings?`, readings for ${entry.withReadings}`:''})?`,
-      '',
-      'The job on the list goes to the bin with its readings and certificates — it can be swapped back the same way.'
-    ];
-    if(unsaved) lines.push('', `⚠ ${unsaved} of its certificates ${unsaved===1?'has':'have'} NOT been saved or shared yet.`);
-    if(!confirm(lines.join('\n'))) return;
-    if(!window.LabCalPin){ alert('The PIN pad (labcal_pin.js) did not load, so the jobs cannot be swapped. Reload LabCal while online.'); return; }
-    if(!await LabCalPin.ask({ title: 'Swap job ' + (entry.callNumber || ''), message: 'Enter the 4-digit PIN to swap the job on the list with the copy in the bin.' })) return;
-  }
-  const res = LabCalJobsheet.restoreJob(id, {swap: entry.onList});
-  let certNote = '';
-  if(res.swapped && swapCerts.length){
-    try{ await LabCalCerts.trash(swapCerts.map(r=>r.id), {binnedWith: res.swapped.id}); }
-    catch(e){ certNote = ' The certificates of the job that went to the bin could not be moved: ' + (e&&e.message?e.message:e); }
-  }
-  if(!res.ok){
-    jobToast = {text: res.reason==='storage' ? (res.message || 'Storage is full — the job could not be restored.') + (res.swapped ? ' The job that was on the list is in the bin.' : '') + certNote
-      : res.reason==='exists' ? `Job ${res.key} is already on the list.` : 'That job is no longer in the bin.', bad:true};
-    renderCalibrationPage(); return;
-  }
-  let n = 0;
-  try{ if(window.LabCalCerts && LabCalCerts.supported()) n = await LabCalCerts.untrashWith(id); }catch(e){ console.warn('Certificates not restored with the job:', e); }
-  LabCalJobsheet.setActiveJob(res.key);
-  viewMode = 'job'; certJobFilter = null; jobFilter = '';
-  jobToast = {text: (res.swapped ? 'Jobs swapped: the copy from the bin is back' : 'Job restored from the bin') +
-    `${n?` with ${n} certificate${n===1?'':'s'}`:''}.` + (res.swapped ? ' The job that was on the list is now in the bin.' : '') + certNote, bad: !!certNote};
-  renderCalibrationPage();
-}
-// v1.642: Delete for good — one bin entry now, PIN. Its certificates stay in
-// the certificate bin for their own 30 days (and their numbers stay reserved).
-async function purgeBinnedJob(id){
-  const entry = LabCalJobsheet.binnedJobs().filter(j=>j.id===id)[0];
-  if(!entry) return;
-  if(!confirm(`Delete job ${entry.callNumber || entry.key} from the bin for good?\n\nIts saved readings and ticks${entry.withReadings?` (readings for ${entry.withReadings} unit${entry.withReadings===1?'':'s'})`:''} are removed and cannot be restored.\nIts certificates stay in the bin for their own 30 days; their numbers stay reserved.`)) return;
-  if(!window.LabCalPin){ alert('The PIN pad (labcal_pin.js) did not load. Reload LabCal while online.'); return; }
-  if(!await LabCalPin.ask({ title: 'Delete for good ' + (entry.callNumber || ''), message: 'Enter the 4-digit PIN to remove this job from the bin for good.' })) return;
-  LabCalJobsheet.purgeBinEntry(id);
-  jobToast = {text:`Job ${entry.callNumber || entry.key} removed from the bin for good.`};
-  renderCalibrationPage();
-}
-// v1.642: on the job page — an earlier copy of this job number is in the bin.
-function binCopyHtml(js){
-  if(!js || !LabCalJobsheet.binnedJobs) return '';
-  const k = LabCalJobsheet.jobKey(js.callNumber || '');
-  const copies = LabCalJobsheet.binnedJobs().filter(j=>j.key === k);
-  if(!copies.length) return '';
-  const c = copies[0];
-  return `<div class="lday-bar" id="binCopyBar">
-      <div><b>An earlier copy of job ${jesc(js.callNumber || '')} is in the bin.</b>
-      <span>Deleted ${jesc(fmtStamp(c.deletedAt))} · ${c.units} unit${c.units===1?'':'s'}${c.done?` (${c.done} done)`:''}${c.withReadings?` · readings for ${c.withReadings}`:''}${copies.length>1?` · ${copies.length} copies in the bin`:''}. This job started fresh — its worksheets are its own.</span></div>
-      <button class="jbtn mini" type="button" data-binswap="${jesc(c.id)}">Swap with the copy in the bin</button>
-    </div>`;
-}
-document.addEventListener('click', ev=>{
-  const b = ev.target && ev.target.closest && ev.target.closest('[data-binswap]');
-  if(b) restoreBinnedJob(b.getAttribute('data-binswap'));
-});
 
 function bindDayView(){
   const go = iso => { selDay = iso; calMonth = iso; jobToast = null; renderCalibrationPage(); };
@@ -1730,7 +1613,7 @@ function bindDayView(){
   const nx = document.getElementById('newJobCancel');
   if(nx) nx.addEventListener('click', ()=>document.getElementById('newJobForm').classList.remove('open'));
   const ls = document.getElementById('dayLoadSheet');
-  if(ls) ls.addEventListener('click', ()=>askLoadDay(selDay || isoDay(new Date())));   // v1.641: job goes on the day picked on the calendar
+  if(ls) ls.addEventListener('click', ()=>jobFile.click());
 }
 
 // Which panel is on screen.
@@ -1967,61 +1850,10 @@ function copiedFeedback(btn, ok){
 // Only a real number is offered: not for superseded copies, Verification or a blank.
 function copyCertBtn(c){
   const ref = String((c && c.certRef) || '').trim();
-  if(!ref || (c && (c.superseded || c.voidedAt))) return '';
+  if(!ref || (c && c.superseded)) return '';
   if(window.LabCalVectorPdf && LabCalVectorPdf.isVerificationRef && LabCalVectorPdf.isVerificationRef(ref)) return '';
   return `<button class="cbtn mini copy" type="button" data-ccopy="${jesc(ref)}" title="Copy ${jesc(ref)}">Copy no.</button>`;
 }
-
-// ---- v1.641 (Radek): job sheet loaded on the day picked on the calendar ----
-// The job is put on that day. If it is not today the engineer is asked first,
-// and the job page shows a warning while today is not the job's day — with
-// "Move job to today" for a mistake. Certificates are always dated the day the
-// unit is really calibrated (worksheet Date = today, unchanged).
-let loadSheetDay = null;
-function shortDay(iso){ return fromIso(iso).toLocaleDateString('en-GB',{weekday:'short', day:'numeric', month:'short'}); }
-function longDay(iso){ return fromIso(iso).toLocaleDateString('en-GB',{weekday:'short', day:'numeric', month:'short', year:'numeric'}); }
-function askLoadDay(day){
-  const today = isoDay(new Date());
-  if(!day || day === today){ loadSheetDay = null; jobFile.click(); return; }
-  const old = document.getElementById('loadDayDlg'); if(old) old.remove();
-  const future = day > today;
-  const box = document.createElement('div');
-  box.id = 'loadDayDlg';
-  box.className = 'lday-back';
-  box.innerHTML = `<div class="lday" role="dialog" aria-modal="true" aria-labelledby="ldayT">
-      <h3 id="ldayT">Load the job sheet for ${jesc(longDay(day))}?</h3>
-      <p class="lday-warn">⚠ This is not today. Today is ${jesc(longDay(today))}. The job will be on the calendar on ${jesc(shortDay(day))}${future ? ' (a day still to come)' : ' (a day already gone)'}.</p>
-      <p class="lday-note">Certificates are always dated on the day the unit is actually calibrated, whatever day the job is on.</p>
-      <div class="lday-acts">
-        <button class="jbtn" type="button" id="ldayPicked">Load for ${jesc(shortDay(day))}</button>
-        <button class="jbtn ghost" type="button" id="ldayToday">Load for today</button>
-        <button class="jbtn ghost" type="button" id="ldayCancel">Cancel</button>
-      </div></div>`;
-  document.body.appendChild(box);
-  const close = ()=>box.remove();
-  box.querySelector('#ldayPicked').addEventListener('click', ()=>{ close(); loadSheetDay = day; jobFile.click(); });
-  box.querySelector('#ldayToday').addEventListener('click', ()=>{ close(); loadSheetDay = null; jobFile.click(); });
-  box.querySelector('#ldayCancel').addEventListener('click', close);
-}
-function plannedDayHtml(js){
-  if(!js || !js.plannedFor) return '';
-  const today = isoDay(new Date());
-  const day = js.day || js.plannedFor;
-  if(day === today) return '';
-  return `<div class="lday-bar" id="plannedDayBar">
-      <div><b>⚠ This job is on ${jesc(longDay(day))} — today is ${jesc(longDay(today))}.</b>
-      <span>Certificates made today are dated today (${jesc(shortDay(today))}).</span></div>
-      <button class="jbtn mini" type="button" id="moveJobToday">Move job to today</button>
-    </div>`;
-}
-document.addEventListener('click', ev=>{
-  const b = ev.target && ev.target.closest && ev.target.closest('#moveJobToday');
-  if(!b || !window.LabCalJobsheet || !LabCalJobsheet.moveCurrentToToday) return;
-  LabCalJobsheet.moveCurrentToToday();
-  selDay = isoDay(new Date()); calMonth = selDay;
-  jobToast = {text:'Job moved to today.'};
-  renderCalibrationPage();
-});
 
 function toastHtml(){
   if(!jobToast) return '';
@@ -2086,7 +1918,7 @@ function bindBackupNudge(js){
     const label = btn.textContent;
     btn.disabled = true; btn.textContent = 'Packing…';
     try{
-      const pack = await LabCalBackup.build({ appVersion: 'v1.643' });
+      const pack = await LabCalBackup.build({ appVersion: 'v1.634' });
       const blob = LabCalBackup.toBlob(pack);
       if(blob.size > LabCalBackup.SIZE_WARN_BYTES &&
          !confirm('This backup is larger than expected ('+Math.round(blob.size/1024)+' KB).\n\nVery large files can hang the Files app when it tries to preview them. Save it anyway?')) return;
@@ -2136,7 +1968,7 @@ function bindJobBar(){
   const nx = document.getElementById('newJobCancel');
   if(nx) nx.addEventListener('click', ()=>{ document.getElementById('newJobForm').classList.remove('open'); });
   const lb = document.getElementById('jobLoadBtn2');
-  if(lb) lb.addEventListener('click', ()=>{ loadSheetDay=null; jobFile.click(); });
+  if(lb) lb.addEventListener('click', ()=>jobFile.click());
 }
 
 // v1.575: "Change locations" — tick the units, type the new location, Apply.
@@ -2480,7 +2312,7 @@ function renderJobPanel(){
     // "+ New job" toggled the form open and straight back closed again.
     if(emptyChanged){
       const b = document.getElementById('jobLoadBtn');
-      if(b) b.addEventListener('click', ()=>{ loadSheetDay=null; jobFile.click(); });
+      if(b) b.addEventListener('click', ()=>jobFile.click());
       bindJobBar();
       bindRoutingFooter();
     }
@@ -2553,7 +2385,7 @@ function renderJobPanel(){
   // number as a badge; not required units last, under their own heading.
   const currentCertRef = d => {
     const list = jobCerts[serialKeyOf(d.serial)] || [];
-    const cur = list.find(c=>!c.superseded && !c.voidedAt) || list.find(c=>!c.voidedAt);
+    const cur = list.find(c=>!c.superseded) || list[0];
     return String((cur && cur.certRef) || d.certRef || '').trim();
   };
   const certSeq = ref => { const m = /^(.*?)(\d+)\s*$/.exec(ref || ''); return m && /[1-9]/.test(m[2]) ? {prefix:m[1], digits:m[2], n:parseInt(m[2],10)} : null; };
@@ -2587,7 +2419,7 @@ function renderJobPanel(){
           (d.duplicateOf && !d.done ? '<span class="jdev-tag notreq">duplicate</span>' :
           (d.notRequired && !d.done ? '<span class="jdev-tag notreq">not required</span>' :
           (!d.done && LabCalJobsheet.isStarted(js.callNumber, d) ? '<span class="jdev-tag started">started</span>' : '')))
-        }${certLockOn() && d.done && d.reopen && !needsReissue(d) ? '<span class="jdev-tag reissue" title="Reopened with the PIN — Generate PDF makes the revised certificate">reopened</span>' : ''}${d.duplicateCopies ? `<span class="jdev-tag dup" title="The jobsheet lists this serial ${d.duplicateCopies+1} times. It is counted once.">listed ${d.duplicateCopies+1}\u00d7 on jobsheet</span>` : ''}${d.addedManually ? '<span class="jdev-tag added">added on site</span>' : ''}${
+        }${d.duplicateCopies ? `<span class="jdev-tag dup" title="The jobsheet lists this serial ${d.duplicateCopies+1} times. It is counted once.">listed ${d.duplicateCopies+1}\u00d7 on jobsheet</span>` : ''}${d.addedManually ? '<span class="jdev-tag added">added on site</span>' : ''}${
           d.edited ? `<span class="jdev-tag edited" title="${jesc((d.editedFields||[]).join(', '))}${d.editedAt?' · '+jesc(shortDay(d.editedAt)):''}">edited</span>` : ''
         }</div>
         <div class="jdev-meta">${jesc(d.serial||'no serial')}${d.location?' · '+jesc(d.location):''}${d.done?certMetaFor(d):''}${d.done&&d.doneAt?' · '+jesc(shortDay(d.doneAt)):''}${d.notRequired&&!d.done&&d.notRequiredReason?' · '+jesc(d.notRequiredReason):''}${
@@ -2599,8 +2431,7 @@ function renderJobPanel(){
         ${d.notRequired && !d.done ? '' : `<select data-route="${i}" class="${d.sheet?'':'ask'}">${sheetOptions(d.sheet)}</select>`}
         ${d.notRequired && !d.done
           ? `<button class="jbtn ghost mini" type="button" data-restore="${i}">Put back</button>`
-          : `<button class="jbtn" type="button" data-open="${i}" ${(!d.sheet||blocked)?'disabled':''}>${needsReissue(d)?'Re-issue':(d.done?(certLockOn()?(d.reopen?'Re-issue':'Certificate'):'Reopen'):'Open')}</button>
-             ${certLockOn() && LabCalJobsheet.isCertLocked && LabCalJobsheet.isCertLocked(d) ? `<button class="jbtn ghost mini" type="button" data-reissue="${i}" ${(!d.sheet||blocked)?'disabled':''} title="Correct a certified unit — PIN, then a revised certificate">Re-issue</button>` : ''}
+          : `<button class="jbtn" type="button" data-open="${i}" ${(!d.sheet||blocked)?'disabled':''}>${needsReissue(d)?'Re-issue':(d.done?'Reopen':'Open')}</button>
              ${d.done ? '' : `<button class="jbtn cross mini" type="button" data-skip="${i}" title="Not required — not on site, or customer declined">✕</button>`}`}
         ${d.done ? '' : `<button class="jbtn ghost mini" type="button" data-edit="${i}" title="Correct the serial number or location">Edit</button>`}
         ${d.duplicateCopies ? `<button class="jbtn ghost mini" type="button" data-split="${i}" title="These are two different units that happen to share a serial number">Two units</button>` : ''}
@@ -2641,17 +2472,16 @@ function renderJobPanel(){
         const showAll = earlierOpen[serialKeyOf(d.serial)];
         const visible = showAll ? list : [current];
         return `<div class="unitcerts">` + visible.map(c=>`
-          <span class="ucert${c.voidedAt?' void':(c.superseded?' sup':'')}${c.summaryTone&&!c.voidedAt?' tone-'+c.summaryTone:''}">
+          <span class="ucert${c.superseded?' sup':''}${c.summaryTone?' tone-'+c.summaryTone:''}">
             <span class="uc-name">${jesc(c.summary || c.certRef || c.filename)}</span>
-            ${c.voidedAt?`<span class="void-tag">VOIDED</span><span class="void-why">${jesc(voidLine(c))}</span>`:''}
-            ${c.superseded&&!c.voidedAt?'<span class="uc-tag">superseded</span>':''}
+            ${c.superseded?'<span class="uc-tag">superseded</span>':''}
             ${LabCalCerts.isUnsaved && LabCalCerts.isUnsaved(c)?'<span class="unsaved-tag" title="Not yet saved or shared">not saved</span>':''}
             ${c.__refMismatch?`<span class="uc-tag" title="Filed under ${jesc(c.jobRef||'no job reference')}">other job ref</span>`:''}
             ${c.__serialWas?`<span class="uc-tag" title="Issued before the serial was corrected">as ${jesc(c.__serialWas)}</span>`:''}
             ${copyCertBtn(c)}
             <button class="cbtn mini" type="button" data-cview="${c.id}">View</button>
-            ${c.voidedAt ? '' : `<button class="cbtn mini" type="button" data-cshare="${c.id}">Share</button>`}
-            ${canVoid(c) ? `<button class="cbtn mini danger" type="button" data-cvoid="${c.id}" title="Void this certificate — PIN and a reason; it stays on record">Void</button>` : ''}
+            <button class="cbtn mini" type="button" data-cshare="${c.id}">Share</button>
+            <button class="cbtn mini danger" type="button" data-cdel="${c.id}" title="Move to the bin">Delete</button>
           </span>`).join('')
           + (earlier.length ? `<button class="cbtn mini" type="button" data-earlier="${serialKeyOf(d.serial)}">${showAll?'Hide':'+'+earlier.length} earlier</button>` : '')
           + `</div>`;
@@ -2779,14 +2609,11 @@ function renderJobPanel(){
           <div class="jc-btns"><button class="jbtn ghost mini" type="button" data-restore="${i}">Put back</button></div>`;
       } else if(st === 'done'){
         const list = jobCerts[serialKeyOf(d.serial)] || [];
-        const cur = list.find(c=>!c.superseded && !c.voidedAt) || null;
+        const cur = list.find(c=>!c.superseded) || null;
         const ref = currentCertRef(d);
         const label = (cur && cur.summary) || ref || doneWord(d);
         foot = `<div class="jc-cert${cur||certLoadNote?'':' missing'}">${jesc(label)}${cur||certLoadNote?'':' <span>— not on file</span>'}</div>
-          <div class="jc-btns">${copyCertBtn(cur || {certRef: ref})}${cur ? `<button class="cbtn mini" type="button" data-cview="${cur.id}">View</button>` : ''}${
-            !certLockOn() || !d.sheet ? '' : (d.reopen
-              ? `<button class="jbtn mini" type="button" data-open="${i}" ${blocked?'disabled':''}>Continue re-issue</button>`
-              : `<button class="jbtn ghost mini" type="button" data-reissue="${i}" ${blocked?'disabled':''} title="Correct a certified unit — PIN, then a revised certificate">Re-issue</button>`)}</div>`;
+          <div class="jc-btns">${copyCertBtn(cur || {certRef: ref})}${cur ? `<button class="cbtn mini" type="button" data-cview="${cur.id}">View</button>` : ''}</div>`;
       } else {
         const word = st==='reissue' ? 'Re-issue' : (st==='started' ? 'Continue' : 'Open worksheet');
         foot = `${st==='started' ? `<div class="jc-stage" data-live-job="${jesc(js.callNumber||'')}" data-live-serial="${jesc(d.serial||'')}">Started — readings entered</div>` : ''}
@@ -2825,7 +2652,6 @@ function renderJobPanel(){
   const html = `
     ${jobBarHtml()}
     ${toastHtml()}
-    ${plannedDayHtml(js)}${binCopyHtml(js)}
     ${backupNudgeHtml(js, live, p)}
     ${packReview && packReview.ref === js.callNumber ? packReviewHtml(packReview) : ''}
     <div class="job-head">
@@ -2894,14 +2720,13 @@ function renderJobPanel(){
     <div class="othercerts">
       <h5>Other certificates for this job — ${jobCertsOther.length}</h5>
       <div class="unitcerts">${jobCertsOther.map(c=>`
-        <span class="ucert${c.voidedAt?' void':(c.superseded?' sup':'')}${c.summaryTone&&!c.voidedAt?' tone-'+c.summaryTone:''}">
+        <span class="ucert${c.superseded?' sup':''}${c.summaryTone?' tone-'+c.summaryTone:''}">
           <span class="uc-name">${jesc(c.summary || c.certRef || c.filename)}</span>
-          ${c.voidedAt?`<span class="void-tag">VOIDED</span><span class="void-why">${jesc(voidLine(c))}</span>`:''}
           <span class="uc-tag">${jesc(c.serial||'no serial')}</span>
           ${LabCalCerts.isUnsaved && LabCalCerts.isUnsaved(c)?'<span class="unsaved-tag" title="Not yet saved or shared">not saved</span>':''}
           <button class="cbtn mini" type="button" data-cview="${c.id}">View</button>
-          ${c.voidedAt ? '' : `<button class="cbtn mini" type="button" data-cshare="${c.id}">Share</button>`}
-          ${canVoid(c) ? `<button class="cbtn mini danger" type="button" data-cvoid="${c.id}" title="Void this certificate — PIN and a reason; it stays on record">Void</button>` : ''}
+          <button class="cbtn mini" type="button" data-cshare="${c.id}">Share</button>
+          <button class="cbtn mini danger" type="button" data-cdel="${c.id}" title="Move to the bin">Delete</button>
         </span>`).join('')}</div>
     </div>` : ''}
     ${routingFooter()}`;
@@ -2948,32 +2773,14 @@ function renderJobPanel(){
     jobPanel.querySelectorAll('[data-open]').forEach(btn=>btn.addEventListener('click',()=>{
       const i = Number(btn.getAttribute('data-open'));
       const d = LabCalJobsheet.current().devices[i];
-      // v1.638: a certified unit opens its certificate, not its worksheet
-      if(certLockOn() && LabCalJobsheet.isCertLocked && LabCalJobsheet.isCertLocked(d)){ showUnitCertificate(d); return; }
       const S = LabCalJobsheet.SHEETS[d.sheet];
       if(!S) return;
       if(!confirmTakeOver(LabCalJobsheet.current().callNumber, d.serial)) return;
       LabCalJobsheet.handoff(i);          // also remembers this model's route
       window.location.href = S.href;
     }));
-    // v1.638: Re-issue a certified unit — PIN, then its worksheet opens for a revised certificate
-    jobPanel.querySelectorAll('[data-reissue]').forEach(btn=>btn.addEventListener('click', async ()=>{
-      const i = Number(btn.getAttribute('data-reissue'));
-      const js0 = LabCalJobsheet.current();
-      const d = js0 && js0.devices[i];
-      if(!d) return;
-      const S = LabCalJobsheet.SHEETS[d.sheet];
-      if(!S) return;
-      if(!window.LabCalPin){ alert('The PIN pad (labcal_pin.js) did not load, so the unit cannot be reopened. Reload LabCal while online.'); return; }
-      const ok = await LabCalPin.ask({ title: 'Re-issue ' + (d.serial || d.model || ''), message: 'Certificate ' + (d.certRef || '') + ' was made for this unit. Enter the 4-digit PIN to reopen its worksheet — Generate PDF then makes the revised certificate.' });
-      if(!ok) return;
-      if(!confirmTakeOver(js0.callNumber, d.serial)) return;
-      if(!LabCalJobsheet.reopenUnit(js0.callNumber, d.serial, d.uid)){ jobToast = {text:'This unit could not be reopened.', bad:true}; renderJobPanel(); return; }
-      LabCalJobsheet.handoff(i);
-      window.location.href = S.href;
-    }));
     const rb = document.getElementById('jobReplaceBtn');
-    if(rb) rb.addEventListener('click', ()=>{ loadSheetDay=null; jobFile.click(); });
+    if(rb) rb.addEventListener('click', ()=>jobFile.click());
     const jsb = document.getElementById('jobSheetBtn');
     if(jsb) jsb.addEventListener('click', ()=>viewJobSheet((LabCalJobsheet.current()||{}).callNumber));
     // --- search ---
@@ -3184,9 +2991,8 @@ function renderJobPanel(){
     jobPanel.querySelectorAll('[data-ccopy]').forEach(b=>b.addEventListener('click', ()=>{
       copyText(b.getAttribute('data-ccopy')).then(ok=>copiedFeedback(b, ok));
     }));
-    // v1.643: Void (PIN + reason) replaces Delete for an issued certificate
-    jobPanel.querySelectorAll('[data-cvoid]').forEach(b=>b.addEventListener('click', async ()=>{
-      if(await voidCertificate(Number(b.getAttribute('data-cvoid')))){ await loadJobCerts(); renderCalibrationPage(); }
+    jobPanel.querySelectorAll('[data-cdel]').forEach(b=>b.addEventListener('click', async ()=>{
+      if(await binCertificate(Number(b.getAttribute('data-cdel')))){ await loadJobCerts(); renderJobPanel(); }
     }));
     jobPanel.querySelectorAll('[data-cshare]').forEach(b=>b.addEventListener('click', async ()=>{
       const rec = await LabCalCerts.get(Number(b.getAttribute('data-cshare')));
@@ -3336,9 +3142,7 @@ if(jobFile){
     try{
       const parsed = await LabCalJobsheet.parseFile(file);
       // v1.616 (Radek): units are picked, not all added — Select units opens below
-      // v1.641: day picked on the calendar (null = today, as before)
-      const forDay = loadSheetDay; loadSheetDay = null;
-      LabCalJobsheet.setCurrent(parsed, file.name, forDay ? {pick:true, day:forDay} : {pick:true});
+      LabCalJobsheet.setCurrent(parsed, file.name, {pick:true});
       viewMode = 'job'; jobFilter=''; certJobFilter=null;
       // v1.585: keep the jobsheet PDF itself with the job (view on site, job pack)
       if(window.LabCalJobFiles && LabCalJobFiles.supported()){
@@ -3530,18 +3334,17 @@ async function renderCertPanel(){
   const jobs = await LabCalCerts.jobsOnDay(day);
 
   const certRow = r => `
-    <div class="crow${r.superseded?' superseded':''}${r.voidedAt?' voided':''}">
+    <div class="crow${r.superseded?' superseded':''}">
       <div class="crow-main">
-        <div class="crow-name">${jesc(r.filename)}${r.voidedAt?' <span class="void-tag">VOIDED</span>':''}${r.superseded&&!r.voidedAt?'<span class="crow-tag">superseded</span>':''}${LabCalCerts.isUnsaved && LabCalCerts.isUnsaved(r)?'<span class="unsaved-tag">not saved yet</span>':''}</div>
-        ${r.voidedAt?`<div class="void-why">${jesc(voidLine(r))}</div>`:''}
+        <div class="crow-name">${jesc(r.filename)}${r.superseded?'<span class="crow-tag">superseded</span>':''}${LabCalCerts.isUnsaved && LabCalCerts.isUnsaved(r)?'<span class="unsaved-tag">not saved yet</span>':''}</div>
         ${r.summary?`<div class="sum-tag${r.summaryTone==='adjusted'?' adjusted':''}">${jesc(r.summary)}</div>`:''}
         <div class="crow-meta">${fmtTime(r.savedAt)}${r.model?' · '+jesc(r.model):''}${r.serial?' · '+jesc(r.serial):''}${r.size?' · '+LabCalCerts.formatSize(r.size):''}</div>
       </div>
       <div class="crow-ctl">
-        ${r.serial && r.sheet && !r.voidedAt ? `<button class="cbtn" type="button" data-reopen="${r.id}">Reopen</button>` : ''}
+        ${r.serial && r.sheet ? `<button class="cbtn" type="button" data-reopen="${r.id}">Reopen</button>` : ''}
         <button class="cbtn" type="button" data-view="${r.id}">View</button>
-        ${r.voidedAt ? '' : `<button class="cbtn" type="button" data-share="${r.id}">Save / Share</button>`}
-        ${canVoid(r) ? `<button class="cbtn danger" type="button" data-void="${r.id}" title="Void this certificate — PIN and a reason; it stays on record">Void</button>` : ''}
+        <button class="cbtn" type="button" data-share="${r.id}">Save / Share</button>
+        <button class="cbtn danger" type="button" data-del="${r.id}">Delete</button>
       </div>
     </div>`;
 
@@ -3572,6 +3375,7 @@ async function renderCertPanel(){
       </div>
       <div class="job-actions">
         <button class="cbtn" type="button" id="certCheckBtn">Check certificates…</button>
+        <button class="cbtn danger" type="button" id="certClearBtn">Clear day</button>
       </div>
     </div>
     ${dayBar}
@@ -3614,14 +3418,7 @@ function bindCertActions(){
     if(!rec) return;
     const sheet = LabCalJobsheet.SHEETS[rec.sheet];
     if(!sheet){ alert('That certificate does not say which worksheet produced it.'); return; }
-    // v1.638: reopening a certified unit = Re-issue → PIN first
-    if(certLockOn()){
-      if(!window.LabCalPin){ alert('The PIN pad (labcal_pin.js) did not load. Reload LabCal while online.'); return; }
-      const ok = await LabCalPin.ask({ title: 'Re-issue ' + (rec.serial || ''), message: 'Enter the 4-digit PIN to reopen this certified unit — Generate PDF then makes the revised certificate.' });
-      if(!ok) return;
-    }
     if(!confirmTakeOver(rec.jobRef, rec.serial)) return;
-    if(certLockOn() && LabCalJobsheet.reopenUnit) LabCalJobsheet.reopenUnit(rec.jobRef, rec.serial, rec.unitUid || '');
     const saved = window.LabCalUnits && LabCalUnits.has(rec.sheet, rec.jobRef, rec.serial);
     if(!saved && !confirm(`No saved readings were found for ${rec.serial}.\n\nOpen the worksheet with just the header filled in?`)) return;
     LabCalJobsheet.handoffUnit({
@@ -3642,9 +3439,8 @@ function bindCertActions(){
     if(window.LabCalSave) await LabCalSave.deliver(rec.blob, rec.filename, {certIds:[rec.id]});
   }));
 
-  // v1.643: an issued certificate is VOIDED (PIN + reason), never deleted
-  certPanel.querySelectorAll('[data-void]').forEach(b=>b.addEventListener('click', async ()=>{
-    if(await voidCertificate(Number(b.getAttribute('data-void')))) renderCalibrationPage();
+  certPanel.querySelectorAll('[data-del]').forEach(b=>b.addEventListener('click', async ()=>{
+    if(await binCertificate(Number(b.getAttribute('data-del')))) renderCertPanel();
   }));
 
   certPanel.querySelectorAll('[data-merge]').forEach(btn=>btn.addEventListener('click', async ()=>{
@@ -3679,7 +3475,17 @@ function bindCertActions(){
 
   const ccBtn = document.getElementById('certCheckBtn');
   if(ccBtn) ccBtn.addEventListener('click', ()=>openCertCheck());
-  // v1.643: "Clear day" is gone — an issued certificate is never deleted, only voided one by one.
+  const clearBtn = document.getElementById('certClearBtn');
+  if(clearBtn) clearBtn.addEventListener('click', async ()=>{
+    const day = certDay || LabCalCerts.todayIso();
+    let nUnsaved = 0;
+    try{ nUnsaved = (await LabCalCerts.listDay(day)).filter(r=>LabCalCerts.isUnsaved && LabCalCerts.isUnsaved(r)).length; }catch(e){}
+    const unsavedWarn = nUnsaved ? `\n\n⚠ ${nUnsaved} of them ${nUnsaved===1?'has':'have'} NOT been saved or shared yet.` : '';
+    if(confirm(`Move every certificate in this list for ${fmtDay(day)} to the bin?\n\nThey stay in the bin for ${LabCalCerts.BIN_DAYS||30} days (calendar page → Bin) and can be restored. Their numbers stay reserved. Copies you already saved or shared are untouched.${unsavedWarn}`)){
+      await LabCalCerts.clearDay(day);
+      renderCertPanel();
+    }
+  });
 }
 
 if(window.LabCalUnits) LabCalUnits.prune();   // drop unit snapshots older than 30 days
@@ -3787,10 +3593,9 @@ async function viewCertificate(id){
   try{ rec = await LabCalCerts.get(Number(id)); }catch(e){ console.warn('Certificate read failed', e); }
   if(closed) return;
   if(!rec){ name.textContent = 'Certificate not found'; say('This certificate is no longer stored on this iPad. Reopen the unit and generate it again, or open the copy saved in Files.'); return; }
-  name.textContent = (rec.filename || rec.certRef || 'Certificate') + (rec.voidedAt ? ' — VOIDED' + (rec.voidReason ? ' (' + rec.voidReason + ')' : '') : '');
+  name.textContent = rec.filename || rec.certRef || 'Certificate';
   if(!(rec.blob instanceof Blob) || !rec.blob.size){ say('The PDF file of this certificate is not on this iPad (only its record is). Open the copy saved in Files, or generate it again.'); return; }
-  share.disabled = !window.LabCalSave || !!rec.voidedAt;   // v1.643: a voided certificate is not sent out
-  if(rec.voidedAt) share.title = 'Voided — not valid, not shared';
+  share.disabled = !window.LabCalSave;
   share.addEventListener('click', async ()=>{ try{ await LabCalSave.deliver(rec.blob, rec.filename, {certIds:[rec.id]}); }catch(e){ console.warn(e); } });
   if(!window.pdfjsLib){ say('The PDF reader did not load. Use Share to open the certificate in Files, then refresh the offline copy of LabCal.'); return; }
   try{
@@ -4037,12 +3842,11 @@ function renderCombine(msg){
 }
 
 function renderCertCheck(out){
-  const LBL = {packcert:'in pack (other iPad)', removed:'deleted (bin)', voided:'VOIDED', ok:'current', old:'older version', changed:'does not match', foreign:'not on this iPad', unknown:'not recognised', packfile:'job pack file'};
+  const LBL = {packcert:'in pack (other iPad)', removed:'deleted (bin)', ok:'current', old:'older version', changed:'does not match', foreign:'not on this iPad', unknown:'not recognised', packfile:'job pack file'};
   const who = r => (r.summary ? [r.summary, r.jobRef ? 'job '+r.jobRef : ''] : [r.certRef || '', r.model, r.serial ? 'serial '+r.serial : '', r.jobRef ? 'job '+r.jobRef : '']).filter(Boolean).join(' · ');
   const rows = out.results.map(r=>{
     let why = '';
     if(r.status==='packcert') why = 'Certificate '+jesc(r.pack.certRef||'')+' for serial '+jesc(r.pack.serial||'?')+' · job '+jesc(r.pack.job||'?')+' — unchanged, matches the pack\'s checklist. Made on another iPad'+(r.pack.engineer?' ('+jesc(r.pack.engineer)+')':'')+', so this iPad has no record of it.';
-    else if(r.status==='voided') why = 'Identical to a certificate that was VOIDED on '+jesc(fmtStamp(r.record.voidedAt))+(r.record.voidReason?' ('+jesc(r.record.voidReason)+')':'')+' — '+jesc(who(r.record))+'. It is NOT valid — do not send it.';
     else if(r.status==='removed') why = 'Identical to a certificate that was DELETED on this iPad (in the bin) — '+jesc(who(r.record))+'. Restore it from the Bin if it is still valid.';
     else if(r.status==='ok') why = 'Identical to the current certificate on record — '+jesc(who(r.record))+' · '+jesc(fmtDay(r.record.day));
     else if(r.status==='old') why = 'Identical to an EARLIER certificate for '+jesc(who(r.record))+' ('+jesc(fmtDay(r.record.day))+'). '+(r.newer?'The current one is '+jesc(r.newer.filename)+'.':'It has been superseded.');
@@ -4074,19 +3878,6 @@ function renderCertCheck(out){
 // v1.549: what the unit line says about its certificate. Monitoring
 // System has no certificate number: show its Worksheet No (if any) and the
 // channel count; units finished under 1.545-1.548 carry "2 ch · in tol".
-// v1.638 (Radek): a certified unit's worksheet is locked; the job list opens its
-// certificate and changes go through Re-issue (PIN). Tests switch it off with
-// localStorage 'labcal.certlock.off' = '1' (the older groups test the old flow).
-function certLockOn(){ try{ return localStorage.getItem('labcal.certlock.off') !== '1'; }catch(e){ return true; } }
-async function showUnitCertificate(d){
-  let list = jobCerts[serialKeyOf(d.serial)];
-  if(!list){ try{ await loadJobCerts(); }catch(e){} list = jobCerts[serialKeyOf(d.serial)] || []; }
-  const cur = list.find(c=>!c.superseded && !c.voidedAt) || list.find(c=>!c.voidedAt);
-  if(cur){ viewCertificate(cur.id); return; }
-  jobToast = {text:`The PDF of ${d.serial || d.model}'s certificate${d.certRef?' '+d.certRef:''} is not stored on this iPad — open the copy saved in Files. To change the unit: Re-issue.`, bad:true};
-  renderJobPanel();
-}
-
 function certMetaFor(d){
   const ref=d.certRef||'', det=d.detail||'';
   const L=/^(\d+) ch · (?:in tol|(\d+) adj)$/;
@@ -4099,83 +3890,24 @@ function certMetaFor(d){
   return ref ? ' · cert '+jesc(ref) : '';
 }
 
-// ---- v1.643 (Radek, 21 Nov 2026): VOID replaces Delete for an issued certificate ----
-// PIN + reason (quick pick or typed). The PDF stays exactly as it is, its
-// number is reserved for ever, the unit goes back to TO DO (unlocked, no valid
-// certificate) and its next calibration gets a NEW number. It goes in the job
-// pack for LabCal Office marked VOIDED, never in the customer's merged PDF.
-// It cannot be undone. Delete stays only for whole jobs.
-function canVoid(c){ return !!(c && !c.voidedAt && !c.superseded && !c.deletedAt && window.LabCalCerts && LabCalCerts.voidCert); }
-function voidLine(c){
-  if(!c || !c.voidedAt) return '';
-  return 'Voided ' + fmtStamp(c.voidedAt) + (c.voidedBy ? ' by ' + c.voidedBy : '') + (c.voidReason ? ' — ' + c.voidReason : '');
-}
-function engineerNameNow(){
-  try{ const list = window.LabCalOffsets ? LabCalOffsets.all() : []; for(const i of list){ if(i && i.engineerName) return i.engineerName; } }catch(e){}
-  return '';
-}
-// The reason panel (own panel — prompt() is suppressed by iOS in the Home Screen app).
-// Resolves the reason text, or null when cancelled.
-function askVoidReason(rec){
-  return new Promise(resolve=>{
-    const picks = (LabCalCerts.VOID_REASONS || ['Wrong unit','Wrong serial number','Calibration not done','Duplicate certificate']);
-    const ov = document.createElement('div');
-    ov.className = 'vd-ov'; ov.id = 'voidOverlay';
-    ov.setAttribute('role','dialog'); ov.setAttribute('aria-modal','true');
-    const name = rec.certRef || rec.summary || rec.filename || 'certificate';
-    ov.innerHTML = `<div class="vd-panel">
-      <div class="vd-title">Void ${jesc(name)}?</div>
-      <div class="vd-sub">${jesc([rec.model, rec.serial ? 'serial '+rec.serial : '', rec.jobRef ? 'job '+rec.jobRef : ''].filter(Boolean).join(' · '))}<br>
-      The PDF is kept unchanged and marked VOIDED. Its number is never used again. The unit goes back to <b>to do</b> — a new calibration gets a new number. This cannot be undone.</div>
-      <div class="vd-picks">${picks.map((t,i)=>`<button type="button" data-vpick="${i}">${jesc(t)}</button>`).join('')}
-        <button type="button" data-vpick="other">Other…</button></div>
-      <input class="vd-other" id="voidOther" placeholder="Reason (required)" maxlength="200" style="display:none" autocomplete="off">
-      <div class="vd-err" role="alert"></div>
-      <div class="vd-bar"><button type="button" data-vcancel="1">Cancel</button><button type="button" class="vd-go" data-vgo="1" disabled>Void…</button></div>
-    </div>`;
-    document.body.appendChild(ov);
-    let choice = null;
-    const other = ov.querySelector('#voidOther'), go = ov.querySelector('[data-vgo]'), err = ov.querySelector('.vd-err');
-    const reason = ()=> choice === 'other' ? String(other.value||'').trim() : (choice === null ? '' : picks[choice]);
-    const refresh = ()=>{ go.disabled = !reason(); err.textContent = ''; };
-    ov.querySelectorAll('[data-vpick]').forEach(b=>b.addEventListener('click', ()=>{
-      const v = b.getAttribute('data-vpick');
-      choice = v === 'other' ? 'other' : Number(v);
-      ov.querySelectorAll('[data-vpick]').forEach(x=>x.classList.toggle('on', x === b));
-      other.style.display = choice === 'other' ? '' : 'none';
-      if(choice === 'other') setTimeout(()=>{ try{ other.focus(); }catch(e){} }, 30);
-      refresh();
-    }));
-    other.addEventListener('input', refresh);
-    const finish = v => { ov.remove(); resolve(v); };
-    ov.querySelector('[data-vcancel]').addEventListener('click', ()=>finish(null));
-    go.addEventListener('click', ()=>{ const r = reason(); if(!r){ err.textContent = 'Choose or type a reason.'; return; } finish(r); });
-  });
-}
-// Returns true when the certificate was voided.
-async function voidCertificate(id){
-  if(!window.LabCalCerts || !LabCalCerts.voidCert) return false;
+// v1.584: one certificate to the bin (asks first). Returns true when moved.
+async function binCertificate(id){
+  if(!window.LabCalCerts || !LabCalCerts.trash) return false;
   let rec = null;
   try{ rec = await LabCalCerts.get(id); }catch(e){}
-  if(!rec){ alert('That certificate is no longer stored on this iPad.'); return false; }
-  if(!canVoid(rec)){ alert(rec.voidedAt ? 'That certificate is already voided.' : 'Only the current certificate of a unit can be voided.'); return false; }
-  const reason = await askVoidReason(rec);
-  if(!reason) return false;
-  if(!window.LabCalPin){ alert('The PIN pad (labcal_pin.js) did not load, so the certificate cannot be voided. Reload LabCal while online.'); return false; }
-  const name = rec.certRef || rec.summary || rec.filename;
-  const pinOk = await LabCalPin.ask({ title: 'Void ' + (name || 'certificate'), message: 'Enter the 4-digit PIN to void this certificate. Reason: ' + reason });
-  if(!pinOk) return false;
-  let done = null;
-  try{ done = await LabCalCerts.voidCert(id, { reason, by: engineerNameNow() }); }
-  catch(e){ alert('The certificate was NOT voided.\n\n' + (e && e.message ? e.message : e)); return false; }
-  let unitBack = false;
+  if(!rec) return false;
+  const name = rec.summary || rec.certRef || rec.filename;
+  const unsavedWarn = (LabCalCerts.isUnsaved && LabCalCerts.isUnsaved(rec))
+    ? `\n\n⚠ It has NOT been saved or shared yet — the bin holds the only copy.` : '';
+  if(!confirm(`Move certificate ${name}${rec.serial?' (serial '+rec.serial+')':''} to the bin?\n\nIt stays in the bin for ${LabCalCerts.BIN_DAYS||30} days (calendar page → Bin) and can be restored. Its number stays reserved. Copies already saved or shared are untouched.${unsavedWarn}`)) return false;
   try{
-    if(window.LabCalJobsheet && LabCalJobsheet.voidUnit && done.jobRef)
-      unitBack = LabCalJobsheet.voidUnit(done.jobRef, done.serial, done.unitUid || '', { certRef: done.certRef || '', reason, at: done.voidedAt });
-  }catch(e){ console.warn('Unit not put back to to do after the void:', e); }
-  try{ if(window.LabCalLog) LabCalLog.add('info', 'Certificate ' + (name || '') + ' VOIDED — ' + reason); }catch(e){}
-  jobToast = {text:`Certificate ${name} voided (${reason}).${unitBack ? ` ${done.serial || 'The unit'} is back to do — its next certificate gets a new number.` : ''}`};
-  return true;
+    await LabCalCerts.trash([id]);
+    jobToast = {text:`Certificate ${name} moved to the bin.`};
+    return true;
+  }catch(e){
+    alert('Could not move the certificate to the bin.\n\n' + (e && e.message ? e.message : e));
+    return false;
+  }
 }
 
 // v1.584: the open job (and its certificates) to the bin.
@@ -4184,15 +3916,20 @@ async function deleteOpenJob(){
   if(!js || !LabCalJobsheet.binJob) return;
   const ref = js.callNumber || '';
   const k = LabCalJobsheet.jobKey(ref);
+  const uids = new Set((js.devices||[]).map(d=>d.uid).filter(Boolean));
   let certs = [];
-  try{ certs = await liveCertsOfJob(js); }catch(e){ console.warn('Certificates of the job could not be read:', e); }
+  try{
+    if(window.LabCalCerts && LabCalCerts.supported()){
+      certs = (await LabCalCerts.all()).filter(r=>!r.deletedAt &&
+        ((r.jobRef && LabCalJobsheet.jobKey(r.jobRef) === k) || (r.unitUid && uids.has(r.unitUid))));
+    }
+  }catch(e){ console.warn('Certificates of the job could not be read:', e); }
   const p = LabCalJobsheet.progress();
   const unsaved = certs.filter(r=>LabCalCerts.isUnsaved && LabCalCerts.isUnsaved(r)).length;
   const lines = [
     `Delete job ${ref || '(no job reference)'}${js.customer?' — '+js.customer:''}?`,
     '',
     `It moves to the bin with its ${p.total} unit${p.total===1?'':'s'}${p.done?` (${p.done} done)`:''}${certs.length?` and ${certs.length} certificate${certs.length===1?'':'s'}`:''}.`,
-    'Its saved readings and ticks go with it — the same job number loaded again starts with empty worksheets.',
     `Restore it within ${LabCalJobsheet.BIN_DAYS||30} days from the calendar page → Bin; after that it is removed for good.`
   ];
   if(certs.length) lines.push('', `⚠ This job already has ${certs.length} certificate${certs.length===1?'':'s'}. Their numbers stay reserved while in the bin.`);
